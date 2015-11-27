@@ -6,7 +6,7 @@
 Plugin Name: WEnotes
 Plugin URI: http://github.com/oeru/wenotes
 Description: Display an aggregated WEnotes stream.
-Version: 1.0.0
+Version: 1.0.1
 Author: Jim Tittsler
 Author URI: http://WikiEducator.org/User:JimTittsler
 License: GPLv2 or later
@@ -46,7 +46,7 @@ function wenotes_func( $atts ) {
 
 	$wenotesdiv = <<<EOD
 <div class="WEnotes WEnotes-$count-$tag" data-tag="$tag" data-count="$count">
-  <img class="WEnotesSpinner" src="http://wikieducator.org/skins/common/images/ajax-loader.gif" alt="Loading..." style="margin-left: 53px;">
+  <img class="WEnotesSpinner" src="//wikieducator.org/skins/common/images/ajax-loader.gif" alt="Loading..." style="margin-left: 53px;">
 </div>
 <script type="text/javascript">/*<![CDATA[*/
 $ = window.jQuery;
@@ -54,7 +54,7 @@ window.wgUserName = null;
 $(function() {
   if (!window.WEnotes) {
     window.WEnotes = true;
-    $.getScript('http://wikieducator.org/extensions/WEnotes/WEnotes-min.js');
+    $.getScript('//wikieducator.org/extensions/WEnotes/WEnotes-min.js');
   }
 })/*]]>*/</script>
 EOD;
