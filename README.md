@@ -3,7 +3,7 @@
 This is a very quick rendering of
 [WikiEducator Widget:WEnotes](http://WikiEducator.org/Widget:WEnotes)
 and [WikiEducator Widget:WEnotesPost](http://WikiEducator.org/Widget:WEnotesPost)
-as a WordPress plugin. It adds shortcodes similar arguments to the widgets.
+as a WordPress plugin. It adds shortcodes with similar arguments to the widgets:
 
 * [WEnotes tag="wikieducator" count="20"]
 * [WEnotesPost tag="wikieducator" button="Post a WEnote"]
