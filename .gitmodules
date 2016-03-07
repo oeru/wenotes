@@ -1,0 +1,6 @@
+[submodule "sag"]
+	path = sag
+	url = https://github.com/sbisbee/sag.git
+[submodule "wenotes"]
+	path = wenotes
+	url = git@bitbucket.org:wikieducator/wenotes.git
