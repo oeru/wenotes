@@ -68,6 +68,7 @@ function wenotespost( $atts ) {
 	$a = shortcode_atts( array(
 	    'tag' => '',
 	    'button' => 'Post a WEnote',
+	    'leftmargin' => '53',
 	    'anonymous' => ''
 	), $atts );
 	$current_user = wp_get_current_user();
@@ -87,7 +88,7 @@ function wenotespost( $atts ) {
 <script type="text/javascript">/*<![CDATA[*/
 $ = window.jQuery;
 $(function() {
-  WEnotesPostWP("WEnotesPost1", 'ds4oer', '${a['button']}', '53');
+  WEnotesPostWP("WEnotesPost1", '${a['tag']}', '${a['button']}', '${a['leftmargin']}');
 })/*]]>*/</script>
 EOD;
 	}
