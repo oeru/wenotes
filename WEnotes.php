@@ -28,7 +28,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-define( 'WENOTES_VERSION', '1.1.0' );
+define( 'WENOTES_VERSION', '1.1.1' );
 
 if ( !function_exists( 'add_action' ) ) {
 	echo 'This only works as a WordPress plugin.';
@@ -44,7 +44,7 @@ function wenotes_func( $atts ) {
 	    'count' => 20
 	    ), $atts );
 
-	$tag = $a['tag'];
+	$tag = strtolower( $a['tag'] );
 	$count = $a['count'];
 
 	$wenotesdiv = <<<EOD
@@ -116,7 +116,7 @@ function wenotespost_ajax() {
                 'text' => trim($_POST['notext']),
                 'id' => $current_user->ID . $ts . substr( "00000$usec", 0, 6 ),
                 'we_source' => 'course',
-                'we_tags' => array( trim($_POST['notag']) ),
+                'we_tags' => array( strtolower(trim($_POST['notag'])) ),
                 'we_timestamp' => date('Y-m-d\TH:i:s.000\Z', $ts)
         );
         if ( $current_user->user_email ) {
