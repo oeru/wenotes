@@ -114,7 +114,7 @@ function wenotespost_ajax() {
                 'from_user' => $current_user->user_login,
                 'from_user_name' => $current_user->display_name,
                 'created_at' => date( 'r', $ts ),
-                'text' => trim($_POST['notext']),
+                'text' => stripslashes(trim($_POST['notext'])),
                 'id' => $current_user->ID . $ts . substr( "00000$usec", 0, 6 ),
                 'we_source' => 'course',
                 'we_tags' => array( strtolower(trim($_POST['notag'])) ),
@@ -127,7 +127,7 @@ function wenotespost_ajax() {
                 $data['profile_url'] = $current_user->user_url;
         }
         if ( isset( $_POST['we_page'] ) ) {
-                $data['we_page'] = $_POST['we_page'];
+                $data['we_page'] = stripslashes($_POST['we_page']);
         }
         if ( isset( $_POST['we_root'] ) ) {
                 $data['we_root'] = $_POST['we_root'];
