@@ -6,7 +6,7 @@
 Plugin Name: WEnotes
 Plugin URI: http://github.com/oeru/wenotes
 Description: Display and post to an aggregated WEnotes stream.
-Version: 1.1.0
+Version: 1.2.0
 Author: Jim Tittsler
 Author URI: http://WikiEducator.org/User:JimTittsler
 License: GPLv2 or later
