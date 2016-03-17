@@ -6,7 +6,7 @@
 Plugin Name: WEnotes
 Plugin URI: http://github.com/oeru/wenotes
 Description: Display and post to an aggregated WEnotes stream.
-Version: 1.2.0
+Version: 1.2.1
 Author: Jim Tittsler
 Author URI: http://WikiEducator.org/User:JimTittsler
 License: GPLv2 or later
@@ -69,7 +69,7 @@ function wenotespost( $atts ) {
 	    'tag' => '',
 	    'button' => 'Post a WEnote',
 	    'leftmargin' => '53',
-	    'anonymous' => ''
+	    'anonymous' => 'You must be logged in to post to WEnotes.'
 	), $atts );
 	$current_user = wp_get_current_user();
 	if ( $current_user->ID == 0 ) {
