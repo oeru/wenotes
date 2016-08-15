@@ -18,3 +18,8 @@ Javascript
 * [Sag](http://saggingcouch.com/), CouchDB libraries for PHP and Javascript
 (the PHP one is used here)
 
+## Note
+
+The current form of the plugin presumes that WordPress user logins are enabled
+through the [OERu course](https://github.com/oeru/oeru_course) theme on
+_Course dashboard_`... Appearance... Customize... Site Navigation... Show the login option?`
