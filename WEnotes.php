@@ -30,6 +30,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 define( 'WENOTES_VERSION', '1.1.1' );
 
+// Same as error_reporting(E_ALL);
+ini_set("error_reporting", E_ALL);
+
 if ( !function_exists( 'add_action' ) ) {
 	echo 'This only works as a WordPress plugin.';
 	exit;
@@ -57,14 +60,18 @@ window.wgUserName = null;
 $(function() {
   if (!window.WEnotes) {
     window.WEnotes = true;
-    $.getScript('//wikieducator.org/extensions/WEnotes/WEnotes-min.js');
+    //$.getScript('//wikieducator.org/extensions/WEnotes/WEnotes-min.js');
+    $.getScript('//wikieducator.org/extensions/WEnotes/WEnotesClient.js');
   }
 })/*]]>*/</script>
 EOD;
 	return $wenotesdiv;
 }
 
+error_log("in WENotes.php");
+ 
 function wenotespost( $atts ) {
+  error_log('in wenotespost with atts:'. print_r($atts, TRUE));
 	$a = shortcode_atts( array(
 	    'tag' => '',
 	    'button' => 'Post a WEnote',
@@ -73,11 +80,13 @@ function wenotespost( $atts ) {
 	), $atts );
 	$current_user = wp_get_current_user();
 	if ( $current_user->ID == 0 ) {
+    error_log("no user logged in");
 		$wenotespostdiv = '';
 		if ( $a['anonymous'] ) {
 			$wenotespostdiv = '<div><p>' . $a['anonymous'] . '</p></div>';
 		}
 	} else {
+    error_log("current user id = ". $current_user->ID);
 		wp_enqueue_script( 'wenotespostwp',
 			plugins_url( 'wenotes/WEnotesPostWP.js', __FILE__ ),
 			array( 'jquery' ),
@@ -92,17 +101,21 @@ $(function() {
 })/*]]>*/</script>
 EOD;
 	}
+  error_log('wenotespostdiv: '. print_r($wenotespostdiv, TRUE));
 	return $wenotespostdiv;
 }
 
 add_action( 'wp_ajax_wenotes', 'wenotespost_ajax' );
 function wenotespostresponse( $a ) {
+  error_log("wenotespostresponse a". print_r($a, TRUE));
 	echo json_encode( $a );
 	die();
 }
 
 function wenotespost_ajax() {
 	require_once( 'sag/src/Sag.php' );
+
+  error_log("in wenotespost_ajax...");
 
 	$current_user = wp_get_current_user();
 	list( $usec, $ts ) = explode( ' ', microtime() );
@@ -135,6 +148,8 @@ function wenotespost_ajax() {
         if ( isset( $_POST['we_parent'] ) ) {
                 $data['we_parent'] = $_POST['we_parent'];
         }
+
+        error_log('in wenotespost_ajax. Data: '. print_r($data, TRUE)); 
 
         $sag->post( $data );
 
