@@ -39,6 +39,8 @@ define('WENOTES_FILE', __FILE__);
 define('WENOTES_URL', plugins_url("/", __FILE__));
 // absolute server path to this plugin
 define('WENOTES_PATH', plugin_dir_path(__FILE__));
+// couchDB blog feeds database
+define('WENOTES_BLOGFEEDS_DB', 'blog-feeds');
 // module details
 define('WENOTES_SLUG', 'wenotes');
 define('WENOTES_TITLE', 'WikiEducator Notes');

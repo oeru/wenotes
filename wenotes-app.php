@@ -1,11 +1,12 @@
 <?php
 
-require WENOTES_PATH . '/includes/wenotes-hooks.php';
+require WENOTES_PATH . '/includes/wenotes-base.php';
 
-class WENotes extends WENotesHooks {
+class WENotes extends WENotesBase {
 
     protected static $instance = NULL; // this instance
     protected static $couchdb; // CouchDB client object
+    protected $fresh = false; // true if freshly creating CouchDB...
 
     // returns an instance of this class if called, instantiating if necessary
     public static function get_instance() {
@@ -45,7 +46,7 @@ class WENotes extends WENotesHooks {
 
         // this is just a convenient place from which to trigger this function
         // for now.
-        $this->update_all_feed_registrations();
+        //$this->update_all_feed_registrations();
     }
 
     // Print the site page itself
@@ -75,10 +76,12 @@ class WENotes extends WENotesHooks {
                     $alt = 0;
                     ?>
                     <tr class="heading">
-                        <th class="label">WordPress User</th>
-                        <th class="label">Blog URL</th>
+                        <th class="label user">WordPress User</th>
+                        <th class="label url">Blog URL</th>
+                        <th class="label status">Status</th>
                     </tr>
                     <?php
+                    $reg_status = $this->get_reg_status_by_site($site_id);
                     foreach ($users as $index => $data){
                         $user_id = $data->ID;
                         $referrer =
@@ -88,17 +91,25 @@ class WENotes extends WENotesHooks {
                             '&wp_http_referer='.$referrer;
                         $wp_name = $data->data->display_name;
                         $wp_email = $data->data->user_email;
+                        // construct the blog_html
                         $blog_url = $this->get_blog_url_for_user_for_site($user_id, $site_id);
                         if ($blog_url) {
                             $blog_html = '<a href="'.$blog_url.'">'.$blog_url.'</a>';
                         } else {
                             $blog_html = "no blog URL specified";
                         }
+                        // construct the blog reg status_html
+                        if ($reg_status[$user_id]) {
+                            $status_html = 'Registered ('.$reg_status[$user_id]['feed_url'].', set '.$reg_status[$user_id]['we_timestamp'].')';
+                        } else {
+                            $status_html = 'Not Registered';
+                        }
                         $rowclass = "user-row";
                         $rowclass .= ($alt%2==0)? " odd":" even";
                         echo '<tr "'.$rowclass.'">';
                         echo '    <td class="wp-details"><a href="'.$wp_url.'">'.$wp_name.'</a> (<a href="mailto:'.$wp_email.'">'.$wp_email.'</a>)</td>';
                         echo '    <td class="blog-url">'.$blog_html.'</td>';
+                        echo '    <td class="blog-url-status">'.$status_html.'</td>';
                         echo '</tr>';
                     }
                 } else {
@@ -116,14 +127,101 @@ class WENotes extends WENotesHooks {
      *  CouchDB related functions
      */
 
-    // check couchdb to see if a given user's block url is recorded for a particular
-    // course tag
-    public function get_feed_registration_status($user_id, $url, $tag) {
-
+    // check if the relevant database and views are in place, and if not,
+    // create them (and populate them)
+    private function check_db($couch) {
+        $this->log('checking if database: '.WENOTES_BLOGFEEDS_DB .' exists...');
+        try {
+            // get all the databases
+            $dbs = json_decode($couch->getAllDatabases()->body);
+            // if our database exists, all good
+            $this->log('list of databases: '. print_r($dbs, true));
+            if (in_array(WENOTES_BLOGFEEDS_DB, $dbs)) {
+                // if not, created it
+                $this->log('The database exists.');
+            } else {
+                $this->log('The database does not exist, creating it');
+                try {
+                    $couch->createDatabase(WENOTES_BLOGFEEDS_DB);
+                    $this->fresh = true;
+                } catch (SagCouchException $e) {
+                    $this->log($e->getCode() . " unable to access");
+                }
+            }
+            return true;
+        } catch (SagCouchException $e) {
+            $this->log($e->getCode() . " unable to access");
+        }
+        return false;
     }
 
-    public function alter_registered_feed_for_user_and_tag($user_id, $oldurl, $tag, $newurl) {
+    // check couchdb to see if a given user's block url is recorded for a particular
+    // course tag
+    public function get_reg_status_by_user($user_id) {
+        $this->log('getting registered blog urls for user: '.$user_id);
+        $couch = $this->couchdb();
+        try {
+            $result = json_decode($couch->get('/_design/ids/_view/by_wp_id_short?key='.
+                $user_id.'&descending=true')->body, true);
+            $this->log('CouchDB number of rows returned: '. count($result['rows']));
+            //$this->log('CouchDB rows returned: '. print_r($result, true));
+            if (count($result['rows'])) {
+                return $result;
+            } else {
+                $this->log('no documents returned!');
+            }
+        } catch (SagCouchException $e) {
+            $this->log($e->getCode() . " unable to access");
+        }
+        return false;
+    }
 
+    // check couchdb to see what blog urls are registered for a site (course)
+    public function get_reg_status_by_site($site_id) {
+        $this->log('getting registered blog urls for site: '.$site_id);
+        $couch = $this->couchdb();
+        try {
+            $data = array();
+            $result = json_decode($couch->get('/_design/ids/_view/by_site_id?key=['.
+                $user_id.','.$site_id.']')->body, true);
+            //$this->log('CouchDB number of rows returned: '. count($result['rows']));
+            $this->log('CouchDB result: '. print_r($result, true));
+            if (count($result['rows'])) {
+                foreach($result['rows'] as $row) {
+                    $data[$row['value']['from_user_wp_id']] = $row['value'];
+                }
+                $this->log('CouchDB data array: '. print_r($data, true));
+                return $data;
+            } else {
+                $this->log('no documents returned!');
+            }
+
+        } catch (SagCouchException $e) {
+            $this->log($e->getCode() . " unable to access");
+        }
+        return false;
+    }
+
+    // update the feed URL for an existing user & site combination, unless there isn't one,
+    // in which case set it.
+    public function update_registered_feed($user_id, $site_id, $newurl) {
+        $this->log('updating registered blog url for user '.$user_id.' and site '.$site_id.' to '.$newurl);
+        $couch = $this->couchdb();
+        try {
+            $result = json_decode($couch->get('/_design/ids/_view/by_site_and_wp_id?key='.
+                $site_id)->body, true);
+            //$this->log('CouchDB number of rows returned: '. count($result['rows']));
+            $this->log('CouchDB result: '. print_r($result, true));
+            if (count($result['rows'])) {
+                $this->log('CouchDB data array: '. print_r($result['rows']['value'], true));
+                return $true;
+            } else {
+                $this->log('no documents returned!');
+            }
+        } catch (SagCouchException $e) {
+            $this->log($e->getCode() . " unable to access");
+        }
+        return false;
     }
 
     // Get a list of all blog urls for all users associated with all sites (courses)
@@ -151,7 +249,7 @@ class WENotes extends WENotesHooks {
             foreach ($results as $result) {
                 $cnt = $count;
                 $count++;
-                $this->log('Result '.$count.' = '. print_r($result, true));
+                //$this->log('Result '.$count.' = '. print_r($result, true));
                 // make sure the user hasn't been deleted
                 if (! ($result['spam'] && $result['deleted'])) {
                     $feed = array();
@@ -160,7 +258,7 @@ class WENotes extends WENotesHooks {
                     $feed['from_user'] = $result['user_nicename'];
                     $feed['from_user_name'] = $result['display_name'];
                     // get wp user id
-                    $feed['from_user_wp_id'] = $result['user_id'];
+                    $feed['from_user_wp_id'] = (int)$result['user_id'];
                     // site tag - element 1 contains the site ID after 'url_'
                     $site_id = (int)explode('_', $result['meta_key'], 2)[1];
                     // we don't want to record the default site...
@@ -171,7 +269,7 @@ class WENotes extends WENotesHooks {
                     }
                     // otherwise, proceed.
                     $feed['site_id'] = $site_id;
-                    $feed['tags'][] = $this->get_site_tag(get_site($site_id));
+                    $feed['tag'] = $this->get_site_tag(get_site($site_id));
                     // web URL and check if it includes RSS
                     if ($urls = $this->check_for_feed($result['meta_value'])) {
                         $feed['url'] = $urls['url_host'];
@@ -190,7 +288,16 @@ class WENotes extends WENotesHooks {
                     $feed['type'] = 'feed';
 
                     // commit this feed...
-                    $this->register_feed($feed);
+                    // first checking if the combination of
+                    // wp ID and url are already there...
+                    if ($id = $this->already_registered($feed['from_user_wp_id'],$site_id)) {
+                        // merge any changes?
+                        $this->log('existing id: '.$id);
+                    } else {
+                        // this is a new registration
+                        $this->log('adding user_id: '.$feed['from_user_wp_id'].', site: '.$site_id.', url: '.$feed['url']);
+                        $this->register_feed($feed);
+                    }
                 }
                 // if user has been marked spam or delete
                 else {
@@ -202,14 +309,106 @@ class WENotes extends WENotesHooks {
         }
     }
 
+    // if there's already a doc with this pair of user and site ids,
+    // then we've already got a record...
+    public function already_registered($user_id, $site_id) {
+        $this->log('Does this user + site combo already exist: user '.
+            $user_id . ', site '.$site_id);
+        $couch = $this->couchdb();
+        try {
+            //$rows = $couch->get('53cb4a62eb50208180d0f0b2bb02a4d2');
+            $result = json_decode($couch->get('/_design/ids/_view/by_site_and_wp_id_short?key=['.
+                $user_id.','.(int)$site_id.']&descending=true')->body, true);
+            $this->log('CouchDB number of rows returned: '. count($result['rows']));
+            //$this->log('CouchDB rows returned: '. print_r($result, true));
+            if (count($result['rows'])) {
+                // tidy up older versions...
+                $i = 0;
+                $preserved = false;
+                foreach($result['rows'] as $row) {
+                    if ($i == 0) {
+                        $this->log('*** preserving: '. print_r($row, true));
+                        $preserved = $row['id'];
+                    } else {
+                        // cleaning up excess documents - these shouldn't
+                        // be here...
+                        $this->log('--- removing: '. print_r($row, true));
+                        $this->remove($row['id']);
+                    }
+                    $i++;
+                }
+                if ($preserved) {
+                    $this->log('yes, returning existing id: '.$preserved);
+                    return $preserved;
+                }
+            } else {
+                $this->log('no documents returned!');
+            }
+        } catch (SagCouchException $e) {
+            $this->log($e->getCode() . " unable to access");
+        }
+        return false;
+    }
+
+    // remove a couch document
+    private function remove($id) {
+        $this->log('Removing document id '.$id);
+        // first request the document based on the ID
+        $couch = $this->couchdb();
+        $result = json_decode($couch->get($id)->body, true);
+        $this->log('returned details: '.print_r($result, true));
+        // get the _id and _rev
+        $this->log('deleting _id: '.$result['_id'].', _rev: '.$result['_rev']);
+        // remove it
+        try {
+            $result = $couch->delete($result['_id'],$result['_rev']);
+            $this->log('result from deleting: '. print_r($result, true));
+        } catch (SagCouchException $e) {
+            $this->log($e->getCode() . " unable to access");
+        }
+    }
+
     // submit a feed registration to CouchDB using a feed object
     public function register_feed($feed) {
-        $this->log('Feed object: '. print_r($feed, true));
+        //$this->log('Feed object: '. print_r($feed, true));
+        // make the connection
+        $couch = $this->couchdb();
+        // get the current time
+		list($usec, $ts) = explode(' ', microtime());
+        $feed['created_at'] = date('r', $ts);
+		$feed['we_timestamp'] = date('Y-m-d\TH:i:s.000\Z', $ts);
+        //$this->log('writing feed description: '. print_r($feed, true));
+        try {
+            //$result = $couch->get('_all_docs');
+            $result = $couch->post($feed);
+            //$this->log('CouchDB result: '. print_r($result, true));
+        } catch (SagCouchException $e) {
+            $this->log($e->getCode() . " unable to access");
+        }
         // need to check if the same url + user details already exist in couchdb
         // in which case we might have to add a tag.
         // If the same user details + tag exist, then we might need to update the
         // url...
         // Otherwise, it might be a no-op.
+    }
+
+    // update the feed URL for a given user and site combo, or if it doesn't
+    // exist, register it.
+    public function update_url_for_user_and_site($user_id, $site_id, $feed) {
+        // make the connection
+        $couch = $this->couchdb();
+        // get the current time
+		list($usec, $ts) = explode(' ', microtime());
+        $feed['created_at'] = date('r', $ts);
+		$feed['we_timestamp'] = date('Y-m-d\TH:i:s.000\Z', $ts);
+        //$this->log('writing feed description: '. print_r($feed, true));
+        try {
+            //$result = $couch->get('_all_docs');
+            $result = $couch->post($feed);
+            //$this->log('CouchDB result: '. print_r($result, true));
+        } catch (SagCouchException $e) {
+            $this->log($e->getCode() . " unable to access");
+        }
     }
 
     // remove an feed records with these details from CouchDB
@@ -395,19 +594,19 @@ class WENotes extends WENotesHooks {
          */
         // register the hook methods
         // add a new site
-        add_action('wpmu_new_blog', array($this, 'add_site'), 10, 6);
+        //add_action('wpmu_new_blog', array($this, 'add_site'), 10, 6);
         // change an existing site do_action( 'update_blog_public', $blog_id, $value );
-        add_action('update_blog_public', array($this, 'update_site'), 10, 2);
+        //add_action('update_blog_public', array($this, 'update_site'), 10, 2);
         // when an existing site is archived - do_action( 'archive_blog', int $blog_id )
         add_action('archive_blog', array($this, 'archive_site'), 10, 1);
         // remove an existing site - do_action( 'delete_blog', $blog_id, $drop );
         add_action('delete_blog', array($this, 'delete_site'), 10, 2);
         // a new user is registered - do_action( 'user_register', $user_id );
-        add_action('user_register', array($this, 'add_user'), 10, 1);
+        add_action('user_register', array($this, 'add_user'), 11, 1);
         // an existing user logs in (starting new session) -  do_action( 'wp_login', $user->user_login, $user );
-        add_action('wp_login', array($this, 'user_login'), 10, 2);
-        // an existing user updates their profile - do_action()'profile_update', $user_id, $old_user_data );
-        add_action('profile_update', array($this, 'update_user'), 10, 2);
+        //add_action('wp_login', array($this, 'user_login'), 10, 2);
+        // an existing user updates their profile - do_action( 'profile_update', $user_id, $old_user_data );
+        add_action('profile_update', array($this, 'change_user'), 11, 2);
         // do_action( 'add_user_to_blog', $user_id, $role, $blog_id );
         add_action('add_user_to_blog', array($this, 'add_user_to_site'), 10, 3);
         // do_action( 'remove_user_from_blog', $user_id, $blog_id );)
@@ -419,6 +618,72 @@ class WENotes extends WENotesHooks {
         add_action( 'wp_ajax_wenotes', array($this, 'wenotespost_ajax'));
     }
 
+    /**
+     * If a site is archived or deleted, remove all associated Blog URLs for the site
+     */
+
+
+    /**
+     * Fires immediately after an existing user is updated.
+     * @param int    $user_id       User ID.
+     * @param object $old_user_data Object containing user's data prior to update.
+    */
+    public function change_user($user_id, $old_user_data) {
+        $site_id = get_current_blog_id();
+        $this->log('in (new) profile_update hook');
+        $this->log('site_id: '. $site_id);
+        // user meta data
+        $old_url = get_user_meta($user_id, 'url_'.$site_id);
+        if (count($old_url) > 1) {
+            $this->log('uh oh, we have more than one URL for this user and site: '.
+                print_r($old_url, true));
+        }
+        $this->log('saved URL for this site: '.print_r($old_url[0], true));
+        if (isset($_POST['courseblog'])) {
+            $new_url = htmlspecialchars($_POST['courseblog']);
+            $this->log('current new URL: '. $new_url);
+            if ($new_url != $old_url) {
+                $this->update_registered_feed($user_id, $site_id, $new_url);
+            }
+        }
+        // add meta data to user data
+        /*foreach($meta as $key => $val) {
+            $new_user_data->data->$key = current($val);
+        }
+        $this->log('new user data:'.print_r($new_user_data, true));*/
+    }
+
+    /**
+     * Adds a user to a blog.
+     *
+     * @param int    $user_id User ID.
+     * @param string $role    User role.
+     * @param int    $blog_id Blog ID.
+     */
+    public function add_user_to_site($user_id, $role, $blog_id) {
+        // we want to make sure any added URL is pushed to CouchDB...
+        $this->log('in hook add_user_to_site');
+    }
+
+    /**
+     * Fires before a user is removed from a site.
+     *
+     * @since MU
+     *
+     * @param int $user_id User ID.
+     * @param int $blog_id Blog ID.
+     */
+    public function remove_user_from_site($user_id, $blog_id) {
+        // make sure any related blog url record in CouchDB is removed
+        $this->log('in hook remove_user_from_site');
+
+    }
+
+    /**
+     * Wenotes Posting
+     */
+
+    // submit a WENotes post from the WordPress form.
     public static function wenotespost( $atts ) {
       	$a = shortcode_atts( array(
       	    'tag' => '',
@@ -473,7 +738,7 @@ EOD;
         }
 })/*]]>*/</script>
 EOD;
-    	  return $wenotesdiv;
+        return $wenotesdiv;
     }
 
     // post a wenotes response to channel... and then let go of the connection.
@@ -482,6 +747,9 @@ EOD;
     	  die();
     }
 
+    /**
+     *  CouchDB integration
+     */
     // initiate couchdb connection or return the existing one...
     public function couchdb() {
         if (!$this->couchdb) {
@@ -490,9 +758,34 @@ EOD;
         	  $current_user = wp_get_current_user();
         	  list( $usec, $ts ) = explode( ' ', microtime() );
             $sag = new Sag( WENOTES_HOST, WENOTES_PORT );
-            $sag->setDatabase( WENOTES_DB );
             $sag->login( WENOTES_USER, WENOTES_PASS );
-            $this->couchdb = $sag;
+            if ($this->check_db($sag)) {
+                $sag->setDatabase(WENOTES_BLOGFEEDS_DB);
+                $this->couchdb = $sag;
+                // if fresh, we need to prime the CouchDB...
+                if ($this->fresh) {
+                    // install the design document
+                    $design_doc = file_get_contents(WENOTES_PATH.
+                        '/includes/design_ids.json');
+                    //$design_doc = '{ "_id" : "_design/ids" }';
+                    //$this->log('design document: '. print_r(json_decode($design_doc), true));
+                    $this->log('design document: '. $design_doc);
+                    try {
+                        $this->log('setting up _design/ids document...');
+                        $response = $this->couchdb->putNew($design_doc,'/_design/ids');
+                        $this->log('response: '. print_r($response, true));
+                    } catch (SagCouchException $e) {
+                        $this->log($e->getCode() . " unable to access");
+                    }
+                    // if we're successful, turn off "fresh"
+                    if ($this->update_all_feed_registrations()) {
+                        $this->fresh = false;
+                    }
+                }
+            } else {
+                $this->log('failed to check the database!');
+                return false;
+            }
         } else {
             $this->log('returning the existing couchdb connection');
         }
