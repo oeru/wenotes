@@ -82,13 +82,10 @@ class WENotes extends WENotesBase {
                     </tr>
                     <?php
                     $reg_status = $this->get_reg_status_by_site($site_id);
+                    $this->log('reg_status = '. print_r($reg_status, true));
                     foreach ($users as $index => $data){
                         $user_id = $data->ID;
-                        $referrer =
-                            '/wp-content/plugins/wpms-mautic/mautic-site.php?id='.
-                            $site_id;
-                        $wp_url = '/wp-admin/network/user-edit.php?user_id='.$user_id.
-                            '&wp_http_referer='.$referrer;
+                        $wp_url = '/wp-admin/network/user-edit.php?user_id='.$user_id;
                         $wp_name = $data->data->display_name;
                         $wp_email = $data->data->user_email;
                         // construct the blog_html
@@ -99,8 +96,8 @@ class WENotes extends WENotesBase {
                             $blog_html = "no blog URL specified";
                         }
                         // construct the blog reg status_html
-                        if ($reg_status[$user_id]) {
-                            $status_html = 'Registered ('.$reg_status[$user_id]['feed_url'].', set '.$reg_status[$user_id]['we_timestamp'].')';
+                        if ($reg_status && $reg_status[$user_id]) {
+                            $status_html = 'Registered ('.$reg_status[$user_id]['url'].', set '.$reg_status[$user_id]['we_timestamp'].')';
                         } else {
                             $status_html = 'Not Registered';
                         }
@@ -113,6 +110,7 @@ class WENotes extends WENotesBase {
                         echo '</tr>';
                     }
                 } else {
+                    $this->log('no users retrieved...');
                     echo '<tr "'.$rowclass.'">';
                     echo ' <td class="no-users">This Site has no Users.</td>';
                     echo '</tr>';
@@ -182,11 +180,12 @@ class WENotes extends WENotesBase {
         $couch = $this->couchdb();
         try {
             $data = array();
-            $result = json_decode($couch->get('/_design/ids/_view/by_site_id?key=['.
-                $user_id.','.$site_id.']')->body, true);
+            $result = json_decode($couch->get('/_design/ids/_view/by_site_id?key='.
+                $site_id)->body, true);
             //$this->log('CouchDB number of rows returned: '. count($result['rows']));
-            $this->log('CouchDB result: '. print_r($result, true));
-            if (count($result['rows'])) {
+            $this->log('get_reg_status_by_site CouchDB result: '. print_r($result, true));
+            if ($result && count($result['rows'])) {
+                $this->log('got result, and non-zero rows...');
                 foreach($result['rows'] as $row) {
                     $data[$row['value']['from_user_wp_id']] = $row['value'];
                 }
@@ -195,28 +194,59 @@ class WENotes extends WENotesBase {
             } else {
                 $this->log('no documents returned!');
             }
-
         } catch (SagCouchException $e) {
             $this->log($e->getCode() . " unable to access");
         }
         return false;
     }
 
-    // update the feed URL for an existing user & site combination, unless there isn't one,
-    // in which case set it.
-    public function update_registered_feed($user_id, $site_id, $newurl) {
-        $this->log('updating registered blog url for user '.$user_id.' and site '.$site_id.' to '.$newurl);
+    // update the feed URL for an existing user_id (from user object)
+    // & site_id, unless there isn't one, in which case set it.
+    public function update_registered_feed($user, $site_id, $newurl) {
+        $user_id = $user->ID;
+        $this->log('updating registered blog url for user '.$user_id.' and site '.$site_id
+            .' to '.$newurl);
         $couch = $this->couchdb();
         try {
-            $result = json_decode($couch->get('/_design/ids/_view/by_site_and_wp_id?key='.
-                $site_id)->body, true);
+            $result = json_decode($couch->get('/_design/ids/_view/by_site_and_wp_id?key=['.
+                $user_id.','.$site_id.']')->body, true);
             //$this->log('CouchDB number of rows returned: '. count($result['rows']));
-            $this->log('CouchDB result: '. print_r($result, true));
+            //$this->log('CouchDB result (update_registered_feed): '. print_r($result, true));
             if (count($result['rows'])) {
-                $this->log('CouchDB data array: '. print_r($result['rows']['value'], true));
+                $doc = $result['rows'][0];
+                //$this->log('CouchDB result (update_registered_feed): '. print_r($result, true));
+                $this->log('CouchDB data array to change: '. print_r($doc, true));
+                // setting URL to new value...
+                if ($doc['value']['url'] !== $newurl) {
+                    $doc_id = $doc['value']['_id'];
+                    $this->log('updating url in doc (_id = '.$doc_id.') from '.$doc['value']['url'].' to '.$newurl.'.');
+                    $doc['value']['url'] = $newurl;
+                    $doc_json = json_encode($doc);
+                    $this->log('json encoded doc: '. print_r($doc_json, true));
+                    try {
+                        $res = $couch->put($doc_id, $doc_json);
+                        $this->log('saved updated entry - result: '. print_r($res, true));
+                    } catch (SagCouchException $e) {
+                        $this->log($e->getCode() . " unable to access");
+                    }
+                } else {
+                    $this->log('URL value unchanged ('.$newurl.'), not altering CouchDB');
+                }
                 return $true;
             } else {
-                $this->log('no documents returned!');
+                $this->log('registering a new url!');
+                $record = array();
+                $record['user_id'] = $user_id;
+                $record['site_id'] = $site_id;
+                $record['url'] = $newurl;
+                $record['spam'] = false;
+                $record['deleted'] = false;
+                $record['user_nicename'] = $user->user_nicename;
+                $record['display_name'] = $user->dispay_name;
+                if ($this->register_feed_from_record($record)) {
+                    $this->log('successfully added record for user_id '.$user_id.
+                        ', site_id '.$site_id.' to new url: '.$newurl);
+                }
             }
         } catch (SagCouchException $e) {
             $this->log($e->getCode() . " unable to access");
@@ -248,65 +278,108 @@ class WENotes extends WENotesBase {
             // go through the results.
             foreach ($results as $result) {
                 $cnt = $count;
-                $count++;
                 //$this->log('Result '.$count.' = '. print_r($result, true));
-                // make sure the user hasn't been deleted
-                if (! ($result['spam'] && $result['deleted'])) {
-                    $feed = array();
-                    // Derive the:
-                    // site user (display and usernames)
-                    $feed['from_user'] = $result['user_nicename'];
-                    $feed['from_user_name'] = $result['display_name'];
-                    // get wp user id
-                    $feed['from_user_wp_id'] = (int)$result['user_id'];
-                    // site tag - element 1 contains the site ID after 'url_'
-                    $site_id = (int)explode('_', $result['meta_key'], 2)[1];
-                    // we don't want to record the default site...
-                    if ($site_id === 1) {
-                        // break out of this loop iteration
-                        $this->log('****continuing on!');
-                        continue;
-                    }
-                    // otherwise, proceed.
-                    $feed['site_id'] = $site_id;
-                    $feed['tag'] = $this->get_site_tag(get_site($site_id));
-                    // web URL and check if it includes RSS
-                    if ($urls = $this->check_for_feed($result['meta_value'])) {
-                        $feed['url'] = $urls['url_host'];
-                        $feed['feed_url'] = $urls['feed_url'];
-                        $feed['feed_type'] = $urls['feed_type'];
-                    }
-
-                    // find an avatar URL
-                    $avatar_args = array();
-                    $feed['gravatar'] = get_avatar_url($result['user_id'],
-                        array('default'=>'identicon', 'processed_args'=>$avatar_args));
-
-                    // mark this with WordPress module type
-                    $feed['we_source'] = 'wenotes_wp';
-                    $feed['we_wp_version'] = WENOTES_VERSION;
-                    $feed['type'] = 'feed';
-
-                    // commit this feed...
-                    // first checking if the combination of
-                    // wp ID and url are already there...
-                    if ($id = $this->already_registered($feed['from_user_wp_id'],$site_id)) {
-                        // merge any changes?
-                        $this->log('existing id: '.$id);
-                    } else {
-                        // this is a new registration
-                        $this->log('adding user_id: '.$feed['from_user_wp_id'].', site: '.$site_id.', url: '.$feed['url']);
-                        $this->register_feed($feed);
-                    }
-                }
-                // if user has been marked spam or delete
-                else {
-                    // tidy up any references in the CouchDB
-                    $unfeed = array();
-                    $this->deregister_feed($unfeed);
+                if($this->register_feed_from_record($result)) {
+                    $count++;
                 }
             }
+            $this->log('Successfully processed '.$count.' user results.');
         }
+    }
+
+    /** Process data from a user query or array to register a feed
+     *
+     * This requires an array with the following:
+     * $record['user_id'] (int) - WP user ID
+     * $record['meta_key'] (array) or $record['site_id'] (int) - info about site
+     * $record['meta_value'] (array) or $record['url'] (str - url),
+     *   $record['feed_url'] (str - url), $record['feed_type'] (str - (rss|atom))
+     * $record['spam'] (bool) - set to false
+     * $record['deleted'] (bool) - set to false
+     * $record['user_nicename'] (str) - username for display
+     * $record['display_name'] (str) - full user name (first and last)
+     */
+    public function register_feed_from_record($record) {
+        $user_id = (int)$record['user_id'];
+        // depending on how record array is constructed...
+        $site_id = (isset($record['site_id'])) ? $record['site_id'] : (int)explode('_', $record['meta_key'], 2)[1];
+        // site tag - element 1 contains the site ID after 'url_'
+        // we don't want to record the default site...
+        if ($site_id === 1) {
+            // break out of this loop iteration
+            $this->log('****continuing on!');
+            //continue;
+            return true;
+        }
+        // make sure the user hasn't been deleted
+        if (! ($record['spam'] && $record['deleted'])) {
+            $feed = array();
+            // Derive the:
+            // site user (display and usernames)
+            $feed['from_user'] = $record['user_nicename'];
+            $feed['from_user_name'] = $record['display_name'];
+            // get wp user id
+            $feed['from_user_wp_id'] = $user_id;
+            // otherwise, proceed.
+            $feed['site_id'] = $site_id;
+            $feed['tag'] = $this->get_site_tag(get_site($site_id));
+            // web URL and check if it includes RSS
+            if (isset($record['url']) && isset($record['feed_url']) && isset($record['feed_type'])) {
+                $this->log('found a fully documented feed: '.
+                    $record['feed_url'].'('.$record['feed_type'].') - the saved url: '
+                    .$record['url'].' and root url: '. $record['url_host']);
+            } else if (isset($record['meta_value']) && !isset(record['url'])) {
+                // check exiting URL to see if it's a valid feed...
+                $this->log('checking meta_value: '.print_r($record['meta_value'], true));
+                if ($urls = $this->check_for_feed($record['meta_value'])) {
+                    $feed['url'] = $urls['url'];
+                    $feed['url_host'] = $urls['url_host'];
+                    $feed['feed_url'] = $urls['feed_url'];
+                    $feed['feed_type'] = $urls['feed_type'];
+                }
+            } else if (isset($record['url']) && !isset($record['feed_url'])) {
+                // check exiting URL to see if it's a valid feed...
+                $this->log('testing URL '.$record['url'].' for feed.');
+                if ($urls = $this->check_for_feed($record['url'])) {
+                    $feed['url'] = $urls['url'];
+                    $feed['url_host'] = $urls['url_host'];
+                    $feed['feed_url'] = $urls['feed_url'];
+                    $feed['feed_type'] = $urls['feed_type'];
+                }
+            }
+            // find an avatar URL
+            $avatar_args = array();
+            $feed['gravatar'] = get_avatar_url($record['user_id'],
+                array('default'=>'identicon', 'processed_args'=>$avatar_args));
+
+            // mark this with WordPress module type
+            $feed['we_source'] = 'wenotes_wp';
+            $feed['we_wp_version'] = WENOTES_VERSION;
+            $feed['type'] = 'feed';
+
+            // commit this feed...
+            // first checking if the combination of
+            // wp ID and url are already there...
+            if ($id = $this->already_registered($feed['from_user_wp_id'],$site_id)) {
+                // merge any changes?
+                $this->log('existing id: '.$id);
+            } else {
+                // this is a new registration
+                $this->log('adding user_id: '.$feed['from_user_wp_id'].', site: '.$site_id.', url: '.$feed['url']);
+                $this->register_feed($feed);
+            }
+        } else {
+            if ($record['spam']) {
+                $this->log('This record (user '.$user.', site '.$site_id.') has been deemed spammy.');
+            }
+            if ($record['deleted']) {
+                $this->log('This record (user '.$user.', site '.$site_id.') has been deleted.');
+            }
+            // tidy up any references in the CouchDB
+            $unfeed = array();
+            $this->deregister_feed($unfeed);
+        }
+        return true;
     }
 
     // if there's already a doc with this pair of user and site ids,
@@ -427,10 +500,12 @@ class WENotes extends WENotesBase {
             // test for .rss or rss at the end of a URL
             $path = $parts['path'];
             $result = array();
+            $result['url'] = $url;
             $found = false;
             // make sure there's no "edit" mentioned in the path...
             if (preg_match('/edit/', $path, $matches)) {
-
+                $this->log('This URL looks like an "edit" URL:'.$url);
+                return(false);
             }
             // check if the provided URL includes feed arugment
             if (preg_match('/(rss|atom|xml)$/', $path, $matches)) {
@@ -640,10 +715,11 @@ class WENotes extends WENotesBase {
         }
         $this->log('saved URL for this site: '.print_r($old_url[0], true));
         if (isset($_POST['courseblog'])) {
+            $user = wp_get_current_user();
             $new_url = htmlspecialchars($_POST['courseblog']);
             $this->log('current new URL: '. $new_url);
             if ($new_url != $old_url) {
-                $this->update_registered_feed($user_id, $site_id, $new_url);
+                $this->update_registered_feed($user, $site_id, $new_url);
             }
         }
         // add meta data to user data
