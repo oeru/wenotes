@@ -219,12 +219,13 @@ class WENotes extends WENotesBase {
                 // setting URL to new value...
                 if ($doc['value']['url'] !== $newurl) {
                     $doc_id = $doc['value']['_id'];
+                    $doc_rev = $doc['value']['_rev'];
                     $this->log('updating url in doc (_id = '.$doc_id.') from '.$doc['value']['url'].' to '.$newurl.'.');
                     $doc['value']['url'] = $newurl;
-                    $doc_json = json_encode($doc);
-                    $this->log('json encoded doc: '. print_r($doc_json, true));
+                    //$doc_json = json_encode($doc);
+                    $this->log('json encoded doc: '. print_r($doc['value'], true));
                     try {
-                        $res = $couch->put($doc_id, $doc_json);
+                        $res = $couch->put($doc_id, $doc['value']);
                         $this->log('saved updated entry - result: '. print_r($res, true));
                     } catch (SagCouchException $e) {
                         $this->log($e->getCode() . " unable to access");
