@@ -159,12 +159,18 @@ class WENotes extends WENotesBase {
         $this->log('getting registered blog urls for user: '.$user_id);
         $couch = $this->couchdb();
         try {
-            $result = json_decode($couch->get('/_design/ids/_view/by_wp_id_short?key='.
+            $data = array();
+            $result = json_decode($couch->get('/_design/ids/_view/by_wp_id?key='.
                 $user_id.'&descending=true')->body, true);
             $this->log('CouchDB number of rows returned: '. count($result['rows']));
             //$this->log('CouchDB rows returned: '. print_r($result, true));
-            if (count($result['rows'])) {
-                return $result;
+            if ($result && count($result['rows'])) {
+                $this->log('got result, and non-zero rows...');
+                foreach($result['rows'] as $row) {
+                    $data[$row['value']['site_id']] = $row['value'];
+                }
+                $this->log('CouchDB data array (get_reg_status_by_user): '. print_r($data, true));
+                return $data;
             } else {
                 $this->log('no documents returned!');
             }
@@ -627,16 +633,28 @@ class WENotes extends WENotesBase {
                     <td>
                         <ol class="wenotes-list">
         <?php
+        // figure out the CouchDB equivalents for the user's sites
+        $user_id = $user->ID;
+        $reg_status = $this->get_reg_status_by_user($user_id);
+        $this->log('reg_status = '. print_r($reg_status, true));
         $html = "";
         $count = 0;
         foreach ($sites as $site) {
             $stripe = ($count++%2) ? "even" : "odd";
-            $html .= '<li class="wenotes-site '.$stripe.'"><a title="Site id is '.$site->userblog_id.'" href="'.$site->path.'">'.$site->blogname.'</a>';
-            if ($url = $this->get_blog_url_for_user_for_site($user->ID, $site->userblog_id)) {
+            $site_id = $site->userblog_id;
+            $html .= '<li class="wenotes-site '.$stripe.'"><a title="Site id is '.$site_id.'" href="'.$site->path.'">'.$site->blogname.'</a>';
+            if ($url = $this->get_blog_url_for_user_for_site($user_id, $site_id)) {
               $html .= ' (<a href="'.$url.'">'.$url.'</a>)';
             } else {
               $html .= ' (no URL specified)';
             }
+            if ($reg_status && isset($reg_status[$site_id])) {
+                $this->log('Info for this site: '. print_r($reg_status[$site_id], true));
+                $html .= ' Registered ('.$reg_status[$site_id]['url'].', set '.$reg_status[$site_id]['we_timestamp'].')';
+            } else {
+                $html .= ' Not Registered';
+            }
+
             $html .= '</li>';
         }
         echo $html;
