@@ -335,7 +335,7 @@ class WENotes extends WENotesBase {
                 $this->log('found a fully documented feed: '.
                     $record['feed_url'].'('.$record['feed_type'].') - the saved url: '
                     .$record['url'].' and root url: '. $record['url_host']);
-            } else if (isset($record['meta_value']) && !isset(record['url'])) {
+            } else if (isset($record['meta_value']) && !isset($record['url'])) {
                 // check exiting URL to see if it's a valid feed...
                 $this->log('checking meta_value: '.print_r($record['meta_value'], true));
                 if ($urls = $this->check_for_feed($record['meta_value'])) {
