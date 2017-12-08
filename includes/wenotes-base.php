@@ -7,7 +7,7 @@ abstract class WENotesBase {
 
     // log things to the web server log
     public function log($message) {
-        if (ACTREG_DEBUG) {
+        if (WENOTES_DEBUG) {
             error_log('DEBUG('.$this->get_caller_info().'): '.$message);
         }
     }
