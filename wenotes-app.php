@@ -16,7 +16,7 @@ class WENotes extends WENotesBase {
 
     // Do smart stuff when this object is instantiated.
     public function init() {
-        $this->log('in WENotes init');
+        //$this->log('in WENotes init');
         // add our updated links to the site nav links array via the filter
         add_filter('network_edit_site_nav_links', array($this, 'insert_site_nav_link'));
         // register all relevant shortcodes
@@ -397,8 +397,12 @@ class WENotes extends WENotesBase {
         $couch = $this->couchdb();
         try {
             //$rows = $couch->get('53cb4a62eb50208180d0f0b2bb02a4d2');
-            $result = json_decode($couch->get('/_design/ids/_view/by_site_and_wp_id_short?key=['.
-                $user_id.','.(int)$site_id.']&descending=true')->body, true);
+            /*$content = $couch->get('/_design/ids/_view/by_site_and_wp_id_short?key=['.
+                $user_id.','.(int)$site_id.']&descending=true');*/
+            $content = $couch->get('/_design/ids/_view/by_site_and_wp_id?key=['.
+                $user_id.','.(int)$site_id.']&descending=true');
+            $this->log('Result of couchdb query is: '. print_r($content, true));
+            $result = json_decode($content->body, true);
             $this->log('CouchDB number of rows returned: '. count($result['rows']));
             //$this->log('CouchDB rows returned: '. print_r($result, true));
             if (count($result['rows'])) {
@@ -671,7 +675,7 @@ class WENotes extends WENotesBase {
      * shortcodes
      */
    public function register_shortcodes() {
-        $this->log('in WENotes register_shortcodes');
+        //$this->log('in WENotes register_shortcodes');
         add_shortcode( 'WEnotes', array($this, 'wenotes_func'));
         add_shortcode( 'WEnotesPost', array($this, 'wenotespost'));
     }
@@ -682,7 +686,7 @@ class WENotes extends WENotesBase {
 
     // initialise the hook methods
     public function register_hooks() {
-        $this->log('in WENotes register_hooks');
+        //$this->log('in WENotes register_hooks');
         /* See
          *https://core.trac.wordpress.org/browser/tags/4.7.3/src/wp-includes/ms-functions.php#L0
          */
@@ -713,9 +717,29 @@ class WENotes extends WENotesBase {
     }
 
     /**
+     * If a site is archived remove all associated Blog URLs for the site
+     * Note - if the site is un-archived, the couchDB mappings can be recreated
+     * based on existing database entries
+     */
+    public function archive_site($site_id) {
+        $this->log('archive_site: removing couchDB references for site '.$site_id);
+        $this->remove_site($site_id);
+    }
+
+    /**
+     * If a site is deleted remove all associated Blog URLs for the site
+     */
+    public function delete_site($site_id, $drop) {
+        $this->log('delete_site: removing ($drop = '.$drop.') couchDB references for site '.$site_id);
+        $this->remove_site($site_id);
+    }
+
+    /**
      * If a site is archived or deleted, remove all associated Blog URLs for the site
      */
-
+    public function remove_site($site_id) {
+        $this->log('removing couchDB references for site '.$site_id);
+    }
 
     /**
      * Fires immediately after an existing user is updated.

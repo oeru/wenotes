@@ -51,6 +51,7 @@ define('WENOTES_ADMIN_TITLE', 'WikiEducator Notes Settings');
 define('WENOTES_ADMIN_MENU', 'WENotes Settings');
 // turn on debugging with true, off with false
 define('WENOTES_DEBUG', true);
+define('LOG_STREAM', getenv('LOG_STREAM')); 
 
 // include the dependencies
 require WENOTES_PATH . '/wenotes-app.php';
