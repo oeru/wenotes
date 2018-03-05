@@ -870,7 +870,7 @@ EOD;
      *  CouchDB integration
      */
     // initiate couchdb connection or return the existing one...
-    public function couchdb() {
+    public function couchdb($prime = false) {
         if (!$this->couchdb) {
             require_once( 'sag/src/Sag.php' );
             $this->log('creating a new couchdb connection');
@@ -882,7 +882,7 @@ EOD;
                 $sag->setDatabase(WENOTES_BLOGFEEDS_DB);
                 $this->couchdb = $sag;
                 // if fresh, we need to prime the CouchDB...
-                if ($this->fresh) {
+                if ($this->fresh && $prime) {
                     // install the design document
                     $design_doc = file_get_contents(WENOTES_PATH.
                         '/includes/design_ids.json');
