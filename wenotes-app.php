@@ -876,7 +876,7 @@ EOD;
      *  CouchDB integration
      */
     // initiate couchdb connection or return the existing one...
-    public function couchdb() {
+    public function couchdb($prime = false) {
         if (!$this->couchdb) {
             require_once( 'sag/src/Sag.php' );
             $this->log('creating a new couchdb connection');
