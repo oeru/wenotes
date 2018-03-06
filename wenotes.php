@@ -28,7 +28,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-define( 'WENOTES_VERSION', '2.0.0' );
+define( 'WENOTES_VERSION', '2.1.0' );
 // plugin computer name
 define('WENOTES_NAME', 'wenotes');
 // current version
@@ -51,7 +51,7 @@ define('WENOTES_ADMIN_SLUG', 'wenotes_settings');
 define('WENOTES_ADMIN_TITLE', 'WikiEducator Notes Settings');
 define('WENOTES_ADMIN_MENU', 'WENotes Settings');
 // turn on debugging with true, off with false
-define('WENOTES_DEBUG', true);
+define('WENOTES_DEBUG', false);
 define('LOG_STREAM', getenv('LOG_STREAM'));
 
 // include the dependencies

@@ -932,7 +932,8 @@ EOD;
             'id' => $current_user->ID . $ts . substr( "00000$usec", 0, 6 ),
             'we_source' => 'course',
             'we_tags' => array( strtolower(trim($_POST['notag'])) ),
-            'we_timestamp' => date('Y-m-d\TH:i:s.000\Z', $ts)
+            'we_timestamp' => date('Y-m-d\TH:i:s.000\Z', $ts),
+            'we_version' => WENOTES_VERSION,
         );
         if ( $current_user->user_email ) {
             $data['gravatar'] = md5( strtolower( trim( $current_user->user_email ) ) );
