@@ -6,7 +6,7 @@ class WENotes extends WENotesBase {
 
     protected static $instance = NULL; // this instance
     protected static $couchdb; // CouchDB client object
-    protected $fresh = false; // true if freshly creating CouchDB...
+    protected static $fresh = false; // true if freshly creating CouchDB...
 
     // returns an instance of this class if called, instantiating if necessary
     public static function get_instance() {
@@ -133,7 +133,7 @@ class WENotes extends WENotesBase {
             // get all the databases
             $dbs = json_decode($couch->getAllDatabases()->body);
             // if our database exists, all good
-            $this->log('list of databases: '. print_r($dbs, true));
+            //$this->log('list of databases: '. print_r($dbs, true));
             if (in_array(WENOTES_BLOGFEEDS_DB, $dbs)) {
                 // if not, created it
                 $this->log('The database exists.');
@@ -141,6 +141,8 @@ class WENotes extends WENotesBase {
                 $this->log('The database does not exist, creating it');
                 try {
                     $couch->createDatabase(WENOTES_BLOGFEEDS_DB);
+                    $this->log('Created a new database: '.WENOTES_BLOGFEEDS_DB);
+                    $this->log('Turning off "fresh"');
                     $this->fresh = true;
                 } catch (SagCouchException $e) {
                     $this->log($e->getCode() . " unable to access");
@@ -218,11 +220,12 @@ class WENotes extends WENotesBase {
                 $user_id.','.$site_id.']')->body, true);
             //$this->log('CouchDB number of rows returned: '. count($result['rows']));
             //$this->log('CouchDB result (update_registered_feed): '. print_r($result, true));
+            // if there's a valid entry for a user + site combination already, change it
             if (count($result['rows'])) {
                 $doc = $result['rows'][0];
                 //$this->log('CouchDB result (update_registered_feed): '. print_r($result, true));
                 $this->log('CouchDB data array to change: '. print_r($doc, true));
-                // setting URL to new value...
+                // setting URL to new value, if it has a new value...
                 if ($doc['value']['url'] !== $newurl) {
                     $doc_id = $doc['value']['_id'];
                     $doc_rev = $doc['value']['_rev'];
@@ -236,10 +239,12 @@ class WENotes extends WENotesBase {
                     } catch (SagCouchException $e) {
                         $this->log($e->getCode() . " unable to access");
                     }
+                // if the URL hasn't been altered, then stop.
                 } else {
                     $this->log('URL value unchanged ('.$newurl.'), not altering CouchDB');
                 }
                 return $true;
+            // if there's no URL entry for a user + site combo, create one.
             } else {
                 $this->log('registering a new url!');
                 $record = array();
@@ -795,7 +800,6 @@ class WENotes extends WENotesBase {
     public function remove_user_from_site($user_id, $blog_id) {
         // make sure any related blog url record in CouchDB is removed
         $this->log('in hook remove_user_from_site');
-
     }
 
     /**
@@ -853,7 +857,8 @@ EOD;
     $(function() {
         if (!window.WEnotes) {
             window.WEnotes = true;
-            $.getScript('//wikieducator.org/extensions/WEnotes/WEnotes-min.js');
+           // $.getScript('//wikieducator.org/extensions/WEnotes/WEnotes-min.js');
+            $.getScript('//c.wikieducator.org/extensions/WEnotes/WEnotesClient.js');
         }
 })/*]]>*/</script>
 EOD;
@@ -862,8 +867,9 @@ EOD;
 
     // post a wenotes response to channel... and then let go of the connection.
     public function wenotespostresponse( $a ) {
-    	  echo json_encode( $a );
-    	  die();
+        $this->log('in wenotespostresponse: '. print_r($a, true));
+    	echo json_encode( $a );
+    	die();
     }
 
     /**
@@ -879,10 +885,11 @@ EOD;
             $sag = new Sag( WENOTES_HOST, WENOTES_PORT );
             $sag->login( WENOTES_USER, WENOTES_PASS );
             if ($this->check_db($sag)) {
-                $sag->setDatabase(WENOTES_BLOGFEEDS_DB);
+                //
                 $this->couchdb = $sag;
                 // if fresh, we need to prime the CouchDB...
                 if ($this->fresh) {
+                    $sag->setDatabase(WENOTES_BLOGFEEDS_DB);
                     // install the design document
                     $design_doc = file_get_contents(WENOTES_PATH.
                         '/includes/design_ids.json');
@@ -913,6 +920,10 @@ EOD;
 
     // submit a wenotes post via WP ajax.
     public static function wenotespost_ajax() {
+        $this->log('received post request via ajax: '. print_r($data,true));
+        $current_user = wp_get_current_user();
+        $this->log('the current user details: '.$current_user->user_login .', '. $current_user->display_name);
+        list($usec, $ts) = explode(' ', microtime());
         $data = array(
             'from_user' => $current_user->user_login,
             'from_user_name' => $current_user->display_name,
@@ -941,10 +952,16 @@ EOD;
 
         // get the
         $sag = $this->couchdb();
-        $sag->post($data);
+        $sag->setDatabase(WENOTES_MENTIONS_DB);
+        $this->log('calling sag: '.print_r($sag, true));
+        $this->log('with data: '.print_r($data, true));
+        $response = $sag->post($data);
+        $this->log('response: '.print_r($response, true));
 
       	$this->wenotespostresponse( array(
-      		'posted' => true
-      	));
+      		'posted' => $response->body,
+            'status' => $response->status,
+            'db' => WENOTES_MENTIONS_DB,
+     	));
     }
 }

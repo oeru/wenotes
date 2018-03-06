@@ -41,6 +41,7 @@ define('WENOTES_URL', plugins_url("/", __FILE__));
 define('WENOTES_PATH', plugin_dir_path(__FILE__));
 // couchDB blog feeds database
 define('WENOTES_BLOGFEEDS_DB', 'blog-feeds');
+define('WENOTES_MENTIONS_DB', 'mentions');
 // module details
 define('WENOTES_SLUG', 'wenotes');
 define('WENOTES_TITLE', 'WikiEducator Notes');
@@ -51,7 +52,7 @@ define('WENOTES_ADMIN_TITLE', 'WikiEducator Notes Settings');
 define('WENOTES_ADMIN_MENU', 'WENotes Settings');
 // turn on debugging with true, off with false
 define('WENOTES_DEBUG', true);
-define('LOG_STREAM', getenv('LOG_STREAM')); 
+define('LOG_STREAM', getenv('LOG_STREAM'));
 
 // include the dependencies
 require WENOTES_PATH . '/wenotes-app.php';
