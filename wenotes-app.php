@@ -160,6 +160,7 @@ class WENotes extends WENotesBase {
     public function get_reg_status_by_user($user_id) {
         $this->log('getting registered blog urls for user: '.$user_id);
         $couch = $this->couchdb();
+        $couch->setDatabase(WENOTES_BLOGFEEDS_DB);
         try {
             $data = array();
             $result = json_decode($couch->get('/_design/ids/_view/by_wp_id?key='.
@@ -186,6 +187,7 @@ class WENotes extends WENotesBase {
     public function get_reg_status_by_site($site_id) {
         $this->log('getting registered blog urls for site: '.$site_id);
         $couch = $this->couchdb();
+        $couch->setDatabase(WENOTES_BLOGFEEDS_DB);
         try {
             $data = array();
             $result = json_decode($couch->get('/_design/ids/_view/by_site_id?key='.
@@ -215,6 +217,7 @@ class WENotes extends WENotesBase {
         $this->log('updating registered blog url for user '.$user_id.' and site '.$site_id
             .' to '.$newurl);
         $couch = $this->couchdb();
+        $couch->setDatabase(WENOTES_BLOGFEEDS_DB);
         try {
             $result = json_decode($couch->get('/_design/ids/_view/by_site_and_wp_id?key=['.
                 $user_id.','.$site_id.']')->body, true);
@@ -400,6 +403,7 @@ class WENotes extends WENotesBase {
         $this->log('Does this user + site combo already exist: user '.
             $user_id . ', site '.$site_id);
         $couch = $this->couchdb();
+        $couch->setDatabase(WENOTES_BLOGFEEDS_DB);
         try {
             //$rows = $couch->get('53cb4a62eb50208180d0f0b2bb02a4d2');
             /*$content = $couch->get('/_design/ids/_view/by_site_and_wp_id_short?key=['.
@@ -444,6 +448,7 @@ class WENotes extends WENotesBase {
         $this->log('Removing document id '.$id);
         // first request the document based on the ID
         $couch = $this->couchdb();
+        $couch->setDatabase(WENOTES_BLOGFEEDS_DB);
         $result = json_decode($couch->get($id)->body, true);
         $this->log('returned details: '.print_r($result, true));
         // get the _id and _rev
@@ -462,10 +467,11 @@ class WENotes extends WENotesBase {
         //$this->log('Feed object: '. print_r($feed, true));
         // make the connection
         $couch = $this->couchdb();
+        $couch->setDatabase(WENOTES_BLOGFEEDS_DB);
         // get the current time
-		list($usec, $ts) = explode(' ', microtime());
+		    list($usec, $ts) = explode(' ', microtime());
         $feed['created_at'] = date('r', $ts);
-		$feed['we_timestamp'] = date('Y-m-d\TH:i:s.000\Z', $ts);
+		    $feed['we_timestamp'] = date('Y-m-d\TH:i:s.000\Z', $ts);
         //$this->log('writing feed description: '. print_r($feed, true));
         try {
             //$result = $couch->get('_all_docs');
@@ -486,10 +492,11 @@ class WENotes extends WENotesBase {
     public function update_url_for_user_and_site($user_id, $site_id, $feed) {
         // make the connection
         $couch = $this->couchdb();
+        $couch->setDatabase(WENOTES_BLOGFEEDS_DB);
         // get the current time
-		list($usec, $ts) = explode(' ', microtime());
+	    	list($usec, $ts) = explode(' ', microtime());
         $feed['created_at'] = date('r', $ts);
-		$feed['we_timestamp'] = date('Y-m-d\TH:i:s.000\Z', $ts);
+	    	$feed['we_timestamp'] = date('Y-m-d\TH:i:s.000\Z', $ts);
         //$this->log('writing feed description: '. print_r($feed, true));
         try {
             //$result = $couch->get('_all_docs');
