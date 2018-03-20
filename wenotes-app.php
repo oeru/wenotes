@@ -43,6 +43,7 @@ class WENotes extends WENotesBase {
         ));
         add_action( 'wp_ajax_wenotes_site', array($this, 'site_submit'));
         $this->site_tab($id);
+        $this->site_urldata($id);
 
         // this is just a convenient place from which to trigger this function
         // for now.
@@ -55,8 +56,6 @@ class WENotes extends WENotesBase {
         $site = get_site($site_id);
         $site_name = $this->get_site_tag($site);
         $this->log('site: '.print_r($site, true));
-
-        $this->log('site_tab');
         ?>
         <div class="wrap" id="wenotes-site-detail">
             <h2>WENotes details for <strong><?php echo $site->blogname.' ('.$site_name.')'; ?></strong></h2>
@@ -86,6 +85,7 @@ class WENotes extends WENotesBase {
                     foreach ($users as $index => $data){
                         $user_id = $data->ID;
                         $wp_url = '/wp-admin/network/user-edit.php?user_id='.$user_id;
+                        $wp_username = $data->data->user_name;
                         $wp_name = $data->data->display_name;
                         $wp_email = $data->data->user_email;
                         // construct the blog_html
@@ -120,6 +120,59 @@ class WENotes extends WENotesBase {
         </div>
         <?php
     }
+
+    // Print the site page itself
+    public function site_urldata($site_id) {
+        // get the site's name:
+        $site = get_site($site_id);
+        $site_name = $this->get_site_tag($site);
+        $this->log('site url data: '.print_r($site, true));
+        // get the WP users for this site/course
+        $searchFilter = 'blog_id='.$site_id.'&orderby=display_name&orderby=nicename';
+        $users = get_users($searchFilter);
+        $this->log('users for blog '.$site_id.':'. print_r($users,true));
+        if (count($users)) {
+            $alt = 0;
+            $reg_status = $this->get_reg_status_by_site($site_id);
+            $this->log('reg_status = '. print_r($reg_status, true));
+            $timestamp = date("Ymd_His");
+            // work out a safe dir to put this output data:
+            $outdir = wp_upload_dir();
+            $outfile = $outdir['basedir'].'/wenotes/wenotes-'.$site_name.'-'.$timestamp.'.py';
+            $user_list = array();
+            foreach ($users as $index => $data){
+                $user_id = $data->ID;
+                $wp_url = '/wp-admin/network/user-edit.php?user_id='.$user_id;
+                $wp_username = $data->data->user_login;
+                $wp_name = $data->data->display_name;
+                $wp_email = $data->data->user_email;
+                // construct the blog_html
+                $blog_url = $this->get_blog_url_for_user_for_site($user_id, $site_id);
+                if ($blog_url) {
+                    $user_list[] = "{ from_user': '".$wp_username."', 'from_user_name': '".$wp_name
+                        ."', 'from_user_wp_id': ".$user_id.", 'site_id': ".$site_id
+                        ."', 'from_user_email': '".$wp_email.", 'tag': '".$site_name
+                        ."', 'feed_url': '".$blog_url
+                        ."', 'we_source': 'array-to-feeds.py', 'we_wp_version': 'na', 'type': 'feed' },\n";
+                }
+            }
+            if ($handle = fopen($outfile, 'w')) {
+                $this->log('print out of users with URLs suitable for a Python array going into '.$outfile);
+                fwrite($handle, 'feeds = ['."\n");
+                foreach($user_list as $user) {
+                    fwrite($handle, $user);
+                } 
+                fwrite($handle, "]\n");
+                fclose($handle);
+                $this->log('finished writing '.$outfile);
+            } else {
+                $this->log('couldn\'t create '.$outfile);
+            }
+        } else {
+            $this->log('no users retrieved...');
+        }
+    }
+
 
     /*
      *  CouchDB related functions
