@@ -24,17 +24,20 @@ class WENotes extends WENotesBase {
         // register all relevant hooks
         $this->register_hooks();
         // set up the custom user profile fields for per-site blog URLs
-        add_action('show_user_profile', array($this, 'site_blog_urls_for_user'), 10, 1);
-        add_action('edit_user_profile', array($this, 'site_blog_urls_for_user'), 10, 1);
+        add_action('show_user_profile', array($this, 'show_site_blog_urls_for_user'), 10, 1);
+        add_action('edit_user_profile', array($this, 'show_site_blog_urls_for_user'), 10, 1);
+    }
+
+    public function url_widget_init() {
+        $this->log('in url_widget_init');
+        wp_enqueue_script( 'wenotes-url-widget-ajax-request', WENOTES_URL. 'app/');
     }
 
     public function site_init($id = '1') {
         $this->log('in site_init, id = '. $id);
         // set up appropriate ajax js file
-        wp_enqueue_script( 'wenotes-site-ajax-request', WENOTES_URL.'app/js/site-ajax.js', array(
-            'jquery',
-            'jquery-form'
-        ));
+        wp_enqueue_script( 'wenotes-site-ajax-request', WENOTES_URL.'app/js/site-ajax.js',
+            array('jquery','jquery-form'));
         // declare the URL to the file that handles the AJAX request
         // (wp-admin/admin-ajax.php)
         wp_localize_script( 'wenotes-site-ajax-request', 'wenotes_site', array(
@@ -44,10 +47,6 @@ class WENotes extends WENotesBase {
         add_action( 'wp_ajax_wenotes_site', array($this, 'site_submit'));
         $this->site_tab($id);
         $this->site_urldata($id);
-
-        // this is just a convenient place from which to trigger this function
-        // for now.
-        //$this->update_all_feed_registrations();
     }
 
     // Print the site page itself
@@ -138,8 +137,10 @@ class WENotes extends WENotesBase {
             $timestamp = date("Ymd_His");
             // work out a safe dir to put this output data:
             $outdir = wp_upload_dir();
-            $outfile = $outdir['basedir'].'/wenotes/wenotes-'.$site_name.'-'.$timestamp.'.py';
-            $user_list = array();
+            $outfile = $outdir['basedir'].'/wenotes/wenotes-'.$site_name.'-'.$timestamp.'.';
+            $records = array();
+            $user_list_python = array();
+            $user_list_php = array();
             foreach ($users as $index => $data){
                 $user_id = $data->ID;
                 $wp_url = '/wp-admin/network/user-edit.php?user_id='.$user_id;
@@ -148,25 +149,94 @@ class WENotes extends WENotesBase {
                 $wp_email = $data->data->user_email;
                 // construct the blog_html
                 $blog_url = $this->get_blog_url_for_user_for_site($user_id, $site_id);
-                if ($blog_url) {
-                    $user_list[] = "{ from_user': '".$wp_username."', 'from_user_name': '".$wp_name
+                $response = $this->test_url($blog_url);
+                $this->log('### test_url response: '. print_r($response, true));
+                // if we got a valid URL...
+                if ($response['valid']) {
+                    if ($response['code'] == '302' || $response['code'] == '301') {
+                        //if ($path != '') { $redirect .= $path; }
+                        $blog_url = $response['redirect'];
+                    } else {
+                        $blog_url = $response['orig_url'];
+                    }
+                    $this->log('new blog_url: '. $blog_url);
+                    if ($response['comment'] != '') {
+                        $this->log('Comment for this URL: '. $response['comment']);
+                    }
+                    // check if this URL, though valid, falls into a common
+                    // mistaken pattern, e.g. it's just the course's URL
+                    // if so, continue on to the next URL
+                    if (!$this->valid_blog_url($blog_url)) {
+                        continue;
+                    }
+                    $records[] = array(
+                        'user_id' => $user_id,
+                        'site_id' => $site_id,
+                        'url' => $blog_url,
+                        'feed_url' => $blog_url,
+                        'feed_type' => 'unknown',
+                        'spam' => false,
+                        'deleted' => false,
+                        'user_nicename' => $wp_username,
+                        'display_name' => $wp_name
+                    );
+                    $user_list_python[] = "    { 'from_user': '".$wp_username."', 'from_user_name': '".$wp_name
                         ."', 'from_user_wp_id': ".$user_id.", 'site_id': ".$site_id
                         ."', 'from_user_email': '".$wp_email.", 'tag': '".$site_name
                         ."', 'feed_url': '".$blog_url
                         ."', 'we_source': 'array-to-feeds.py', 'we_wp_version': 'na', 'type': 'feed' },\n";
+                    $user_list_php[] = "    array('from_user' =>'".$wp_username."', 'from_user_name'=>'".$wp_name
+                        ."', 'from_user_wp_id'=>".$user_id.", 'site_id'=>".$site_id
+                        ."', 'from_user_email'=>'".$wp_email.", 'tag'=>'".$site_name
+                        ."', 'feed_url'=>'".$blog_url
+                        ."', 'we_source'=>'array-to-feeds.py', 'we_wp_version'=>'na', 'type'=>'feed' ),\n";
                 }
             }
-            if ($handle = fopen($outfile, 'w')) {
-                $this->log('print out of users with URLs suitable for a Python array going into '.$outfile);
+            $this->log('writing '.count($user_list_python).' entries.');
+            // python first
+            if ($handle = fopen($outfile.'py', 'w')) {
+                $this->log('print out of users with URLs suitable for a Python array going into '.$outfile.'py');
+                // first the Python array
                 fwrite($handle, 'feeds = ['."\n");
-                foreach($user_list as $user) {
+                foreach($user_list_python as $user) {
                     fwrite($handle, $user);
-                } 
+                }
                 fwrite($handle, "]\n");
                 fclose($handle);
-                $this->log('finished writing '.$outfile);
+                $this->log('finished writing '.$outfile.'py');
             } else {
-                $this->log('couldn\'t create '.$outfile);
+                $this->log('couldn\'t create '.$outfile.'py');
+            }
+            // now php
+            if ($handle = fopen($outfile.'php', 'w')) {
+                $this->log('print out of users with URLs suitable for a PHP array going into '.$outfile.'php');
+                // then the php version of the array
+                fwrite($handle, 'feeds = array('."\n");
+                foreach($user_list_php as $user) {
+                    fwrite($handle, $user);
+                }
+                fwrite($handle, ");\n");
+                // finish off
+                fclose($handle);
+                $this->log('finished writing '.$outfile.'php');
+            } else {
+                $this->log('couldn\'t create '.$outfile.'php');
+            }
+            if ($cnt = count($records)) {
+                $this->log('Registering '.$cnt.' user blog urls.');
+                $count = 0;
+                foreach($records as $record) {
+                    if ($this->register_feed_from_record($record)) {
+                        $count++;
+                        $this->log('registered feed '.$count.'/'.$cnt.' for user: '.
+                            $record['display_name'].'('.$record['user_id'].')');
+                    } else {
+                        $this->log('failed to register feed for user: '.
+                            $record['display_name'].'('.$record['user_id'].')');
+                    }
+                }
+            } else {
+                $this->log('No records created')    ;
             }
         } else {
             $this->log('no users retrieved...');
@@ -328,30 +398,32 @@ class WENotes extends WENotesBase {
     // Note: this is only to be used to initialise things and make them
     // correspond to the current state of the data!
     public function update_all_feed_registrations() {
-        global $wpdb;
-        $result = array();
-        $usermeta_table = "wp_usermeta";
-        $user_table = "wp_users";
+        if (0) {
+            global $wpdb;
+            $result = array();
+            $usermeta_table = "wp_usermeta";
+            $user_table = "wp_users";
 
-        // check for listed sites
-        $query = 'SELECT m.user_id, u.user_nicename, u.display_name, '
-            .'u.user_email, u.spam, u.deleted, m.meta_key, m.meta_value FROM '.
-            $usermeta_table.' m LEFT JOIN '.$user_table.' u ON m.user_id = u.ID '
-            .'WHERE m.meta_key LIKE "url_%" ORDER BY u.user_registered;';
-        $this->log('WENotes query: '. $query);
-        if ($results = $wpdb->get_results($query, ARRAY_A)) {
-            $count = 0;
-            //$this->log('WENotes - successful query! Result: '. print_r($result, true));
-            $this->log('WENotes - successful query!');
-            // go through the results.
-            foreach ($results as $result) {
-                $cnt = $count;
-                //$this->log('Result '.$count.' = '. print_r($result, true));
-                if($this->register_feed_from_record($result)) {
-                    $count++;
+            // check for listed sites
+            $query = 'SELECT m.user_id, u.user_nicename, u.display_name, '
+                .'u.user_email, u.spam, u.deleted, m.meta_key, m.meta_value FROM '.
+                $usermeta_table.' m LEFT JOIN '.$user_table.' u ON m.user_id = u.ID '
+                .'WHERE m.meta_key LIKE "url_%" ORDER BY u.user_registered;';
+            $this->log('WENotes query: '. $query);
+            if ($results = $wpdb->get_results($query, ARRAY_A)) {
+                $count = 0;
+                //$this->log('WENotes - successful query! Result: '. print_r($result, true));
+                $this->log('WENotes - successful query!');
+                // go through the results.
+                foreach ($results as $result) {
+                    $cnt = $count;
+                    //$this->log('Result '.$count.' = '. print_r($result, true));
+                    if($this->register_feed_from_record($result)) {
+                        $count++;
+                    }
                 }
+                $this->log('Successfully processed '.$count.' user results.');
             }
-            $this->log('Successfully processed '.$count.' user results.');
         }
     }
 
@@ -414,6 +486,11 @@ class WENotes extends WENotesBase {
                     $feed['feed_url'] = $urls['feed_url'];
                     $feed['feed_type'] = $urls['feed_type'];
                 }
+            } else {
+                # no url set... bail.
+                $this->log('no URL set! No reason to register this record: '.
+                    print_r($record, true));
+                return false;
             }
             // find an avatar URL
             $avatar_args = array();
@@ -571,55 +648,188 @@ class WENotes extends WENotesBase {
     // return "false" if indeterminate
     public function check_for_feed($url) {
         $this->log('check for feed: '. $url);
-        // check if we have a valid URL
-        if ($parts = parse_url($url)) {
-            // test for .rss or rss at the end of a URL
-            $path = $parts['path'];
-            $result = array();
-            $result['url'] = $url;
-            $found = false;
-            // make sure there's no "edit" mentioned in the path...
-            if (preg_match('/edit/', $path, $matches)) {
-                $this->log('This URL looks like an "edit" URL:'.$url);
-                return(false);
-            }
-            // check if the provided URL includes feed arugment
-            if (preg_match('/(rss|atom|xml)$/', $path, $matches)) {
-                $this->log('match: '. print_r($matches, true));
-                $found = $this->test_feed($url);
-            } elseif (preg_match('/(feed)/', $path, $matches)) {
-                $this->log('feed matches: '. print_r($matches, true));
-                $found = $this->test_feed($url);
+
+        if (0) {
+            // check if we have a valid URL
+            if ($parts = parse_url($url)) {
+                // test for .rss or rss at the end of a URL
+                $path = $parts['path'];
+                $base_url = $parts['scheme'].'://'.$parts['host'];
+                $response = $this->test_url($base_url);
+                if ($response['valid']) {
+                    $result = array();
+                    if ($response['code'] == '302' || $response['code'] == '301') {
+                        $result['url'] = $response['redirect'];
+                    } else {
+                        $result['url'] = $response['orig_url'];
+                    }
+                    $found = false;
+                    // make sure there's no "edit" mentioned in the path...
+                    if (preg_match('/edit/', $path, $matches)) {
+                        $this->log('This URL looks like an "edit" URL:'.$url);
+                        return false;
+                    }
+                    // check if the provided URL includes feed arugment
+                    if (preg_match('/(rss|atom|xml)$/', $path, $matches)) {
+                        $this->log('match: '. print_r($matches, true));
+                        $found = $this->test_feed($url);
+                    } elseif (preg_match('/(feed)/', $path, $matches)) {
+                        $this->log('feed matches: '. print_r($matches, true));
+                        $found = $this->test_feed($url);
+                    } else {
+                        $this->log('no matches, checking for default feed');
+                        $found = $this->test_feed($url);
+                    }
+                    $result['feed_url'] = $url;
+                    $result['url_host'] = $base_url;
+                    // if found isn't false, we got a feed...
+                    if ($found) {
+                        $this->log('A '.$found.' feed found at '. $url);
+                        $result['feed_type'] = $found;
+                        return $result;
+                    } else {
+                        $this->log('No feed found: '. $url);
+                        $feed_url = $this->look_for_feed($url);
+                        $result['feed_type'] = 'none';
+                        return $result;
+                        // check for valid site
+                    }
+                } else {
+                    $this->log('URL '.$base_url.' returns a 404...');
+                }
             } else {
-                $this->log('no matches, checking for default feed');
-                $found = $this->test_feed($url);
+                $this->log('Invalid URL: '. $url);
             }
-            $result['feed_url'] = $url;
-            $result['url_host'] = $parts['scheme'].'://'.$parts['host'];
-            // if found isn't false, we got a feed...
-            if ($found) {
-                $this->log('A '.$found.' feed found at '. $url);
-                $result['feed_type'] = $found;
-                return $result;
-            } else {
-                $this->log('No feed found: '. $url);
-                $feed_url = $this->look_for_feed($url);
-                $result['feed_type'] = 'none';
-                return $result;
-                // check for valid site
-            }
-        } else {
-            $this->log('Invalid URL: '. $url);
+            // if all else fails, return false
+            return false;
         }
-        // if all else fails, return false
         return false;
     }
 
-    // look for a valid feed given a blog site URL in well known places:
-    public function look_for_feed($url) {
-
+    // convenience function to return a suitably structure array
+    private function url_response($valid = false, $orig = '', $path = '', $code = '',
+        $redirect = '', $comment = '') {
+        $this->log('returning response: valid: '.$valid. ', orig url: '.$orig.
+            ', path: '.$path, ', code: '.$code.', redirect: '.$redirect.
+            ', comment: '.$comment);
+        return array("valid" => $valid, 'orig_url' => $orig, 'path' => $path,
+            "code" => $code, "redirect" => $redirect, "comment" => $comment);
     }
 
+    // check if a URL that is valid actually resolves. Returns false on 404
+    public function test_url($url) {
+        if ($url != '') {
+            $orig = $url;
+            $path = '';
+            $parts = array();
+            if ($parts = parse_url(strtolower(trim($url)))) {
+                $this->log('checking blog_url: '. print_r($parts, true));
+                $path = $parts['path'];
+                if (!isset($parts['scheme'])) {
+                    $parts['scheme'] = 'http';
+                }
+                $url = $parts['scheme'].'://'.$parts['host'];
+            } else {
+                $this->log('unable to parse URL: '.$url);
+                return $this->url_response(false, $orig, $path,'404');
+            }
+            $this->log('testing for the existence of '.$url);
+            $headers = @get_headers($url);
+            if ($headers){
+                $this->log('looks like we found something! Returns: '.
+                    print_r($headers, true));
+                switch ($headers[0]) {
+                    case 'HTTP/1.0 200 OK':
+                    case 'HTTP/1.1 200 OK':
+                        $this->log('yay! Returning valid url: '.$orig);
+                        $response = $this->url_response(true, $orig, $path,
+                             '200');
+                    break;
+                    case 'HTTP/1.0 301 Moved Permanently':
+                    case 'HTTP/1.1 301 Moved Permanently':
+                        foreach ($headers as $header) {
+                            $line = explode(': ', $header);
+                            if ($line[0] == 'Location') {
+                                $response = $this->url_response(true,  $orig,
+                                    $path, '301', $line[1]);
+                                break;
+                            }
+                        }
+                    break;
+                    case 'HTTP/1.0 302 Moved Temporarily':
+                    case 'HTTP/1.1 302 Moved Temporarily':
+                        foreach ($headers as $header) {
+                            $line = explode(': ', $header);
+                            if ($line[0] == 'Location') {
+                                $response = $this->url_response(true,  $orig,
+                                    $path, '302', $line[1]);
+                                break;
+                            }
+                        }
+                    break;
+                    case 'HTTP/1.0 302 Found':
+                    case 'HTTP/1.1 302 Found':
+                        foreach ($headers as $header) {
+                            $line = explode(': ', $header);
+                            if ($line[0] == 'Location') {
+                                $response = $this->url_response(false, '302',
+                                    $orig, $path, $line[1]);
+                                break;
+                            }
+                        }
+                    break;
+                    case 'HTTP/1.0 404 Not Found':
+                    case 'HTTP/1.1 404 Not Found':
+                        $response = $this->url_response(false, $orig, $path,
+                            '404');
+                    break;
+                    case 'HTTP/1.0 410 Gone':
+                    case 'HTTP/1.1 410 Gone':
+                        $response = $this->url_response(false, $orig, $path,
+                            '410');
+                    break;
+                    default:
+                        $this->log('got unknown result: '. $headers[0]);
+                    break;
+                }
+            } else {
+                $this->log('no headers returned');
+            }
+        } else {
+            $this->log('empty URL');
+            $response = $this->url_response(false);
+        }
+        return $response;
+    }
+
+    // check if this *valid* URL falls into one of a few commonly seen
+    // mistakes...
+    public function valid_blog_url($url) {
+        $bad_hosts = array(
+           DOMAIN_CURRENT_SITE,
+           'accounts.google.com',
+           'course.oeru.org',
+           'facebook.com',
+           'google.com',
+           'saylor.org',
+           'wikieducator.org',
+           'www.facebook.com',
+           'www.saylor.org',
+        );
+        $this->log('=================Is this url a common mistake? '. $url);
+        $parts = parse_url(strtolower(trim($url)));
+        if (isset($parts['host'])) {
+            if (in_array($parts['host'], $bad_hosts)) {
+                $this->log('-----------------url '.$url.' has a bad host: '.$parts['host']);
+                return false;
+            }
+        } else {
+            $this->log('no "host" detected...'. print_r($parts, true));
+            return false;
+        }
+        $this->log('++++++++++++++++url '.$url.' could be a valid blog URL!!');
+        return true;
+    }
 
     // check if an actual RSS or Atom feed is returned for this URL
     // true or false
@@ -648,28 +858,14 @@ class WENotes extends WENotesBase {
      * Wordpress related functions
      */
 
-    // given a site id and user id, get any associated blog url
+    // given a site id and user id, get any associated blog url or return false
     public function get_blog_url_for_user_for_site($user_id, $site_id) {
-        global $wpdb;
-        $result = array();
-        $usermeta_table = "wp_usermeta";
-        $user_table = "wp_users";
-
-        // check for listed sites
-        $query = 'SELECT m.user_id, u.user_nicename, u.display_name, m.meta_key, m.meta_value FROM '.
-            $usermeta_table.' m LEFT JOIN '.$user_table.' u ON m.user_id = u.ID WHERE m.user_id = '.
-            $user_id .' AND m.meta_key = "url_'. $site_id .'";';
-        $this->log('WENotes query: '. $query);
-        if ($result = $wpdb->get_results($query, ARRAY_A)) {
-            $this->log('WENotes - successful query! Result: '. print_r($result, true));
-            // this only returns a single value - the first one...
-            if ($url = $result[0]['meta_value']) {
-                $this->log('found URL: '.$url);
-                return $url;
-            } else {
-                $this->log('no suitable URL found...');
-            }
+        // get the blog URL set for a user_id and site_id combo
+        if ($url = get_user_meta($user_id, 'url_'.$site_id, true)) {
+            $this->log('found url '.$url.' for user '.$user_id.' and site '.$site_id);
+            return $url;
         }
+        $this->log('no url found for user '.$user_id.' and site '.$site_id);
         return false;
     }
 
@@ -687,7 +883,7 @@ class WENotes extends WENotesBase {
     }
 
     // show site_blog_urls for a given user
-    public function site_blog_urls_for_user($user) {
+    public function show_site_blog_urls_for_user($user) {
         $sites = get_blogs_of_user($user->ID);
         $this->log('user sites: '. print_r($sites, true));
         $total = count($sites) ? count($sites) : "no";

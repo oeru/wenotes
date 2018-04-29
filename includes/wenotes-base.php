@@ -1,6 +1,6 @@
 <?php
 /*
- * base class for all Activity Register classes with utility functions
+ * base class for all WENotes classes with utility functions
  */
 
 abstract class WENotesBase {
