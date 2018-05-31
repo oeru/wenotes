@@ -28,11 +28,6 @@ class WENotes extends WENotesBase {
         add_action('edit_user_profile', array($this, 'show_site_blog_urls_for_user'), 10, 1);
     }
 
-    public function url_widget_init() {
-        $this->log('in url_widget_init');
-        wp_enqueue_script( 'wenotes-url-widget-ajax-request', WENOTES_URL. 'app/');
-    }
-
     public function site_init($id = '1') {
         $this->log('in site_init, id = '. $id);
         // set up appropriate ajax js file
@@ -418,7 +413,7 @@ class WENotes extends WENotesBase {
                 foreach ($results as $result) {
                     $cnt = $count;
                     //$this->log('Result '.$count.' = '. print_r($result, true));
-                    if($this->register_feed_from_record($result)) {
+                    if ($this->register_feed_from_record($result)) {
                         $count++;
                     }
                 }
@@ -710,7 +705,7 @@ class WENotes extends WENotesBase {
     private function url_response($valid = false, $orig = '', $path = '', $code = '',
         $redirect = '', $comment = '') {
         $this->log('returning response: valid: '.$valid. ', orig url: '.$orig.
-            ', path: '.$path, ', code: '.$code.', redirect: '.$redirect.
+            ', path: '.$path. ', code: '.$code.', redirect: '.$redirect.
             ', comment: '.$comment);
         return array("valid" => $valid, 'orig_url' => $orig, 'path' => $path,
             "code" => $code, "redirect" => $redirect, "comment" => $comment);
@@ -935,7 +930,7 @@ class WENotes extends WENotesBase {
     /*
      * shortcodes
      */
-   public function register_shortcodes() {
+    public function register_shortcodes() {
         //$this->log('in WENotes register_shortcodes');
         add_shortcode( 'WEnotes', array($this, 'wenotes_func'));
         add_shortcode( 'WEnotesPost', array($this, 'wenotespost'));
