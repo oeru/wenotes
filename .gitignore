@@ -17,4 +17,5 @@ node_modules
 wiki/WEnotes/sag*
 # don't include the configuration file
 couchserver.json
-
+# don't include a scratch file...
+scratch.txt

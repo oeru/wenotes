@@ -1,0 +1,24 @@
+/* css for wenotes related content */
+
+#wenotes-site-detail .blog-feedback {
+    visibility: hidden;
+    height: 0px;
+    overflow: hidden;
+    color: blue;
+}
+#wenotes-site-detail .initially-hidden {
+    display: none;
+}
+#wenotes-site-detail .wenotes-form {
+    box-sizing: border-box;
+    margin: 0;
+    line-height: inherit;
+    font-size: inherit;
+    padding: 4px 2px;
+}
+#wenotes-site-detail .blog-feedback.success {
+    color: green;
+}
+#wenotes-site-detail .blog-feedback.error {
+    color: red;
+}

@@ -5,6 +5,12 @@
 
 abstract class WENotesBase {
 
+    // construct JSON responses to AJAX queries
+    public function ajax_response($a) {
+        echo json_encode($a);
+        die();
+    }
+
     // log things to the web server log
     public function log($message) {
         if (WENOTES_DEBUG) {
@@ -12,7 +18,7 @@ abstract class WENotesBase {
         }
     }
 
-    function get_caller_info() {
+    public function get_caller_info() {
         $c = '';
         $file = '';
         $func = '';
