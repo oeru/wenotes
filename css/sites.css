@@ -1,12 +1,12 @@
 /* css for wenotes related content */
 
 #wenotes-site-detail .blog-feedback {
-    visibility: hidden;
+/*    visibility: hidden;
     height: 0px;
-    overflow: hidden;
+    overflow: hidden; */
     color: blue;
 }
-#wenotes-site-detail .initially-hidden {
+#wenotes-site-detail .hidden {
     display: none;
 }
 #wenotes-site-detail .wenotes-form {
@@ -14,7 +14,7 @@
     margin: 0;
     line-height: inherit;
     font-size: inherit;
-    padding: 4px 2px;
+    padding: 4px;
 }
 #wenotes-site-detail .blog-feedback.success {
     color: green;
@@ -22,3 +22,23 @@
 #wenotes-site-detail .blog-feedback.error {
     color: red;
 }
+#wenotes-site-detail .wenotes-feed,
+#wenotes-site-detail .button {
+    vertical-align: middle;
+}
+#wenotes-site-detail .wenotes-user,
+#wenotes-site-detail .wenotes-user td {
+    vertical-align: text-bottom;
+}
+
+.wenotes-feed {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    margin-right: 6px;
+}
+.wenotes-rss { background-image: url(img/bff-rss.24x24.png); }
+.wenotes-atom { background-image: url(img/bff-atom.24x24.png); }
+.wenotes-json { background-image: url(img/bff-json.24x24.png); }
+.wenotes-default { background-image: url(img/bff-feed.24x24.png); }

@@ -14,10 +14,10 @@ class WENotesFeed extends WENotesCouch {
         'application/json' => 'JSON',
     );
     protected $feed_classes = array(
-         'application/atom+xml' => 'bff-atom',
-         'application/rss+xml' => 'bff-rss',
-         'application/json' => 'bff-rss',
-         'application/xml' => 'bff-default'
+         'application/atom+xml' => 'wenotes-atom',
+         'application/rss+xml' => 'wenotes-rss',
+         'application/json' => 'wenotes-rss',
+         'application/xml' => 'wenotes-default'
     );
     protected $errors = array(), $messages = array();
 
@@ -57,6 +57,7 @@ class WENotesFeed extends WENotesCouch {
     // alter the existing blog feed listed for a site and user
     // setting the feed type along the way, returning false if it fails to set
     // the value or find a feed type...
+    // returns a type, or false on failure.
     public function update_feed_for_user_for_site($user_id, $site_id, $url) {
         $new_url = sanitize_text_field($url);
         // get the old URL and make sure it's not the same as the new URL...
@@ -69,7 +70,7 @@ class WENotesFeed extends WENotesCouch {
                     $this->log('found feed of type '.$type.' at '.$new_url.'.');
                     $this->messages[] = array(
                         'message' => 'found '.$type.' feed at '.$new_url.'.');
-                    return true;
+                    return $type;
                 } else {
                     $this->errors[] = array('error' => 'No recognisable feed found at '.$new_url.'.',
                         'replace_url' => $old_url);
@@ -94,7 +95,7 @@ class WENotesFeed extends WENotesCouch {
             if (update_user_meta($user_id, 'feedtype_'.$site_id, $type)) {
                 $this->messages[] = array('message' => 'set feed type to '.$type.
                     ' for user '.$user_id.' and site '.$site_id);
-                return true;
+                return $type;
             }
             $this->errors[] = array('error' => 'failed to set feed type to '.
                     $type.' for user '.$user_id.' and site '.$site_id);
@@ -201,7 +202,7 @@ class WENotesFeed extends WENotesCouch {
         if (isset($this->feed_classes[$type])) {
             $msg = '<span title="'.$this->feed_types[$type].
                 ' Format" class="'.$this->feed_classes[$type].
-                ' bff-feed" ></span>';
+                ' wenotes-feed" ></span>';
         }
         return $msg;
     }

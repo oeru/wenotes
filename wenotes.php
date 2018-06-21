@@ -54,7 +54,8 @@ define('WENOTES_ADMIN_MENU', 'WENotes Settings');
 define('WENOTES_DEBUG', true);
 define('LOG_STREAM', getenv('LOG_STREAM'));
 // other useful parameters
-define('WENOTES_MAX_FILE_READ_CHAR', 100000);
+// limit the amount of data we'll read in to check for feed data
+define('WENOTES_MAX_FILE_READ_CHAR', 1000000);
 
 // include the dependencies
 require WENOTES_PATH . '/wenotes-app.php';

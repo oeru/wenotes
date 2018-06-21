@@ -15,30 +15,61 @@ function get_feed_details(id) {
     return ids;
 }
 
-
 // jQuery seletors and related functions in that context
 jQuery(document).ready(function() {
     var $ = jQuery;
+    var ptime = 2000; // time to display
+    var ftime = 1000; // time to fade
     LOG('wenotes-site', wenotes_site_data);
 
     // display success messages
     function success(user_id, site_id, messages) {
-
+        LOG('success message');
+        show_feedback(user_id, site_id);
+        $('#feedback-'+user_id+'-'+site_id).addClass('success');
+        set_feedback(user_id, site_id, messages);
+        hide_feedback(user_id, site_id);
     }
 
     // display failure messages
     function failure(user_id, site_id, error) {
+        LOG('failure message');
+        show_feedback(user_id, site_id);
         $('#feedback-'+user_id+'-'+site_id).addClass('error');
-        error.forEach(function(entry) {
-            LOG('entry = ', entry);
-            set_message(user_id, site_id, entry);
-       });
+        set_feedback(user_id, site_id, error);
+        hide_feedback(user_id, site_id);
     }
 
-    function set_message(user_id, site_id, msg) {
+    function set_feedback(user_id, site_id, msg) {
+        if (msg instanceof Array) {
+            LOG('this is an array');
+            msg.forEach(function(entry) {
+                $('#feedback-'+user_id+'-'+site_id).html(entry);
+            });
+        } else {
+            LOG('this is a scalar string');
+            $('#feedback-'+user_id+'-'+site_id).html(msg);
+        }
+    }
+
+    function show_feedback(user_id, site_id) {
+        LOG('showing feedback');
+        $('#row-'+user_id+'-'+site_id).removeClass('hidden');
+        $('#feedback-'+user_id+'-'+site_id).removeClass('hidden');
         $('#row-'+user_id+'-'+site_id).show();
         $('#feedback-'+user_id+'-'+site_id).show();
-        $('#feedback-'+user_id+'-'+site_id).html(msg);
+    }
+
+    function hide_feedback(user_id, site_id) {
+        LOG('hiding feedback');
+        $('#feedback-'+user_id+'-'+site_id).animate(
+            {opacity: 0.9},
+            {duration: ptime, complete: function() {
+                $(this).hide(ftime);
+            }, function() {
+                $('#row-'+user_id+'-'+site_id).hide();
+            }}
+        );
     }
 
     // add/update a user's blog feed URL for a site
@@ -48,10 +79,19 @@ jQuery(document).ready(function() {
         url = $('#url-'+ids['user_id']+'-'+ids['site_id']).val();
         LOG('update blog feed URL for user '+ids['user_id']+' and site '+ids['site_id']+' to '+url);
         //LOG('wenotes_site = ', wenotes_site_data);
+        is_add = false;
+        if ($(this).hasClass('add')) {
+            LOG('this is an add - if successful, replace the buttons');
+            is_add = true;
+        } else {
+            LOG('this isn\'t an add');
+        }
         if (url == '') {
             failure(ids['user_id'], ids['site_id'], 'You must set a URL value first.');
             return;
         }
+        set_feedback(ids['user_id'], ids['site_id'], 'Processing...');
+        show_feedback(ids['user_id'], ids['site_id']);
         $.ajax({
             type: 'POST',
             dataType: 'json',
@@ -61,7 +101,8 @@ jQuery(document).ready(function() {
                 'site_nonce': wenotes_site_data.site_nonce,
                 'url': url,
                 'user_id': ids['user_id'],
-                'site_id': ids['site_id']
+                'site_id': ids['site_id'],
+                'is_add': is_add
             },
             // successful ajax query
             success: function(data) {
@@ -72,7 +113,18 @@ jQuery(document).ready(function() {
                         LOG('messages ', data.messages);
                         success(data.details.user_id, data.details.site_id, data.messages);
                     }
-
+                    // if we have a new form, put it in place.
+                    if (data.details.hasOwnProperty('new_form')) {
+                        LOG('replacing add button with update and delete');
+                        if (data.details.is_add) {
+                            LOG('replacing add form');
+                        } else {
+                            LOG('replacing update/delete form');
+                        }
+                        // update the form, replacing the content of the td
+                        $('#cell-'+data.details.user_id+'-'+data.details.site_id).
+                                html(data.details.new_form);
+                    }
                 } else {
                     LOG('failure: data', data);
                     if (data.hasOwnProperty('errors')) {
@@ -95,8 +147,10 @@ jQuery(document).ready(function() {
         ids = get_feed_details($(this).attr('id'));
         // get the value from the url input field
         url = $('#url-'+ids['user_id']+'-'+ids['site_id']).val();
-        set_message(ids['user_id'], ids['site_id'], 'Deleting '+url);
+        set_feedback(ids['user_id'], ids['site_id'], 'Deleting '+url);
         LOG('remove blog feed URL for user '+ids['user_id']+' and site '+ids['site_id']);
+        set_feedback(ids['user_id'], ids['site_id'], 'Processing...');
+        show_feedback(ids['user_id'], ids['site_id']);
         $.ajax({
             type: 'POST',
             dataType: 'json',
@@ -111,11 +165,22 @@ jQuery(document).ready(function() {
             success: function(data) {
                 LOG('returned data ', data);
                 if (data.hasOwnProperty('success')) {
-                    LOG('success: data ', data);
                     if (data.hasOwnProperty('messages')) {
                         LOG('messages ', data.messages);
+                        success(data.details.user_id, data.details.site_id, data.messages);
                     }
-
+                    // if we have a new form, put it in place.
+                    if (data.details.hasOwnProperty('new_form')) {
+                        LOG('replacing add button with update and delete');
+                        if (data.details.is_add) {
+                            LOG('replacing add form');
+                        } else {
+                            LOG('replacing update/delete form');
+                        }
+                        // update the form, replacing the content of the td
+                        $('#cell-'+data.details.user_id+'-'+data.details.site_id).
+                                html(data.details.new_form);
+                    }
                 } else {
                     LOG('failure: data', data);
                     if (data.hasOwnProperty('errors')) {

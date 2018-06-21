@@ -50,10 +50,17 @@ class WENotesSites extends WENotesFeed {
         $this->check_nonce(sanitize_text_field($_POST['site_nonce']),'wenotes-site-nonce'); // dies if nonce isn't good...
         header( "Content-Type: application/json" );
         $details = array(
+            'is_add' => $_POST['is_add'],
             'user_id' => $_POST['user_id'],
             'site_id' => $_POST['site_id'],
             'url' => $_POST['url']);
-        if ($this->update_feed_for_user_for_site($details['user_id'],$details['site_id'], $details['url'])) {
+        if ($type = $this->update_feed_for_user_for_site($details['user_id'],$details['site_id'],
+            $details['url'])) {
+            // if we added a new URL, change the resulting form
+            if ($details['is_add']) {
+                $details['new_form'] = $this->alter_url_form($details['user_id'],$details['site_id'],
+                    $details['url'], $type, $status);
+            }
             $this->ajax_response(array('success' => 'true', 'messages' => $this->messages, 'details' => $details));
         } else {
             $this->ajax_response(array('failure' => 'true', 'errors' => $this->errors, 'details' => $details));
@@ -73,14 +80,17 @@ class WENotesSites extends WENotesFeed {
             'site_id' => $_POST['site_id'],
             'url' => $_POST['url']);
         if ($this->delete_feed_for_user_for_sites($details['user_id'],
-           $details['site_id'],$details['url'])) {
+            $details['site_id'],$details['url'])) {
+            // if we don't already have an "add" interface, provide one
+            if (! $details['is_add']) {
+                $details['new_form'] = $this->add_url_form($details['user_id'],$details['site_id']);
+            }
            $this->ajax_response(array('success' => 'true', 'messages' => $this->messages, 'details' => $details));
        } else {
            $this->ajax_response(array('failure' => 'true', 'errors' => $this->errors, 'details' => $details));
        }
         wp_die();
     }
-
 
     // Print the site page itself
     public function site_tab($site_id) {
@@ -132,21 +142,12 @@ class WENotesSites extends WENotesFeed {
                         $line = '<tr class="'.$rowclass.' wenotes-user">';
                         $line .= '    <td class="wenotes-details"><a href="'.$wp_url.'">'.
                             $wp_name.'</a> (<a href="mailto:'.$wp_email.'">'.$wp_email.'</a>)</td>';
-                        $id = $user_id.'-'.$site_id;
                         if ($blog_url) {
-                            $line .= '    <td class="blog-url"><input id="url-'.$id.
-                                '" class="wenotes-form url" name="url-'.$id.'" type="text" value="'.
-                                $blog_url.'" /> <span class="wenotes-feed-alter button" id="alter-'.
-                                $id.'" button">update</span><span class="wenotes-feed-delete button" id="delete-'.
-                                $id.'">delete</span>&nbsp;'.$this->get_feed_icon[$blog_type].' '.
-                                $status_html.'</td>';
+                            $line .= $this->alter_url_form($user_id, $site_id, $blog_url, $blog_type, $status_html);
                         } else {
-                            $line .= '    <td class="blog-url"><input id="url-'.
-                                $id.'" class="wenotes-form url" name="url-'.
-                                $id.'" type="text" value="" placeholder="None specified" /> <span id="alter-'.
-                                $id.'" class="wenotes-feed-alter button">add</span></td>';
+                            $line .= $this->add_url_form($user_id, $site_id);
                         }
-                        $line .= '</tr><tr id="row-'.$id.'" class="initially-hidden blog-feedback"><td id="feedback-'.$id.'" class="blog-feedback" colspan="2">testing</td></tr>';
+                        $line .= $this->feedback_markup($user_id, $site_id);
                         echo $line;
                     }
                 } else {
@@ -158,6 +159,34 @@ class WENotesSites extends WENotesFeed {
             </table>
         </div>
         <?php
+    }
+
+    public function alter_url_form($user_id, $site_id, $url, $type, $status = '') {
+        $id = $user_id.'-'.$site_id;
+        if ($status == '') { $status = '<span>Not Registered</span>'; }
+        $txt = '    <td id="cell-'.$id.'" class="blog-url"><input id="url-'.$id.
+            '" class="wenotes-form url" name="url-'.$id.'" type="text" value="'.
+            $url.'" /> <span class="wenotes-feed-alter update button" id="alter-'.
+            $id.'" button">update</span><span class="wenotes-feed-delete button" id="delete-'.
+            $id.'">delete</span>&nbsp;'.$this->get_feed_icon($type).
+            ' '.$status.'</td>';
+        return $txt;
+    }
+
+    public function add_url_form($user_id, $site_id) {
+        $id = $user_id.'-'.$site_id;
+        $txt = '    <td id="cell-'.$id.'" class="blog-url"><input id="url-'.
+            $id.'" class="wenotes-form url" name="url-'.
+            $id.'" type="text" value="" placeholder="None specified" /> <span id="alter-'.
+            $id.'" class="wenotes-feed-alter add button">add</span></td>';
+        return $txt;
+    }
+
+    public function feedback_markup($user_id, $site_id) {
+        $id = $user_id.'-'.$site_id;
+        $txt = '    <tr id="row-'.$id.'" class="blog-feedback"><td id="feedback-'.
+            $id.'" class="blog-feedback" colspan="2"></td></tr>';
+        return $txt;
     }
 
     // Print the site page itself
