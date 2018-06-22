@@ -164,7 +164,7 @@ class WENotesSites extends WENotesFeed {
     public function alter_url_form($user_id, $site_id, $url, $type, $status = '') {
         $id = $user_id.'-'.$site_id;
         if ($status == '') { $status = '<span>Not Registered</span>'; }
-        $txt = '    <td id="cell-'.$id.'" class="blog-url"><input id="url-'.$id.
+        $txt = '    <td id="cell-'.$id.'" class="blog-url wenotes-form-cell"><input id="url-'.$id.
             '" class="wenotes-form url" name="url-'.$id.'" type="text" value="'.
             $url.'" /> <span class="wenotes-feed-alter update button" id="alter-'.
             $id.'" button">update</span><span class="wenotes-feed-delete button" id="delete-'.
@@ -175,7 +175,7 @@ class WENotesSites extends WENotesFeed {
 
     public function add_url_form($user_id, $site_id) {
         $id = $user_id.'-'.$site_id;
-        $txt = '    <td id="cell-'.$id.'" class="blog-url"><input id="url-'.
+        $txt = '    <td id="cell-'.$id.'" class="blog-url wenotes-form-cell"><input id="url-'.
             $id.'" class="wenotes-form url" name="url-'.
             $id.'" type="text" value="" placeholder="None specified" /> <span id="alter-'.
             $id.'" class="wenotes-feed-alter add button">add</span></td>';

@@ -41,14 +41,17 @@ jQuery(document).ready(function() {
     }
 
     function set_feedback(user_id, site_id, msg) {
+        $('#feedback-'+user_id+'-'+site_id).empty();
         if (msg instanceof Array) {
             LOG('this is an array');
             msg.forEach(function(entry) {
-                $('#feedback-'+user_id+'-'+site_id).html(entry);
+                LOG('showing message ', entry.message);
+                $('#feedback-'+user_id+'-'+site_id).
+                    append('<p class="wenotes-feedback">'+entry.message+'</p>');
             });
         } else {
             LOG('this is a scalar string');
-            $('#feedback-'+user_id+'-'+site_id).html(msg);
+            $('#feedback-'+user_id+'-'+site_id).append('<p>'+msg+'</p>');
         }
     }
 
@@ -73,7 +76,8 @@ jQuery(document).ready(function() {
     }
 
     // add/update a user's blog feed URL for a site
-    $('.wenotes-feed-alter').click(function() {
+    //$('.wenotes-feed-alter').click(function() {
+    $('.wenotes-form-cell').on('click','.wenotes-feed-alter', function() {
         ids = get_feed_details($(this).attr('id'));
         // get the value from the url input field
         url = $('#url-'+ids['user_id']+'-'+ids['site_id']).val();
@@ -143,7 +147,8 @@ jQuery(document).ready(function() {
     });
 
     // remove an user's existing blog feed URL for a site
-    $('.wenotes-feed-delete').click(function() {
+    //$('.wenotes-feed-delete').click(function() {
+    $('.wenotes-form-cell').on('click','.wenotes-feed-delete', function() {
         ids = get_feed_details($(this).attr('id'));
         // get the value from the url input field
         url = $('#url-'+ids['user_id']+'-'+ids['site_id']).val();
