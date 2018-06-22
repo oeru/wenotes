@@ -295,8 +295,8 @@ EOD;
     $(function() {
         if (!window.WEnotes) {
             window.WEnotes = true;
-            $.getScript('//wikieducator.org/extensions/WEnotes/WEnotes-min.js');
-           // $.getScript('//c.wikieducator.org/extensions/WEnotes/WEnotesClient.js');
+            //$.getScript('//wikieducator.org/extensions/WEnotes/WEnotes-min.js');
+            $.getScript('//c.wikieducator.org/extensions/WEnotes/WEnotesClient.js');
         }
 })/*]]>*/</script>
 EOD;
