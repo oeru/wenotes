@@ -40,7 +40,7 @@ define('WENOTES_URL', plugins_url("/", __FILE__));
 // absolute server path to this plugin
 define('WENOTES_PATH', plugin_dir_path(__FILE__));
 // couchDB blog feeds database
-define('WENOTES_BLOGFEEDS_DB', 'blog-feeds');
+define('WENOTES_BLOGFEEDS_DB', 'blog-feeds-hetzner');
 define('WENOTES_MENTIONS_DB', 'mentions');
 // module details
 define('WENOTES_SLUG', 'wenotes');
