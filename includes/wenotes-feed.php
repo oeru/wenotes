@@ -5,7 +5,7 @@
 
 require WENOTES_PATH . '/includes/wenotes-couch.php';
 
-class WENotesFeed extends WENotesCouch {
+class WEnotesFeed extends WEnotesCouch {
 
     // feed types
     protected $feed_types = array(

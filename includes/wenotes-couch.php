@@ -5,7 +5,7 @@
 
 require WENOTES_PATH . '/includes/wenotes-util.php';
 
-class WENotesCouch extends WENotesUtil {
+class WEnotesCouch extends WEnotesUtil {
 
     protected static $couchdb; // CouchDB client object
 
@@ -216,11 +216,11 @@ class WENotesCouch extends WENotesUtil {
                 .'u.user_email, u.spam, u.deleted, m.meta_key, m.meta_value FROM '.
                 $usermeta_table.' m LEFT JOIN '.$user_table.' u ON m.user_id = u.ID '
                 .'WHERE m.meta_key LIKE "url_%" ORDER BY u.user_registered;';
-            $this->log('WENotes query: '. $query);
+            $this->log('WEnotes query: '. $query);
             if ($results = $wpdb->get_results($query, ARRAY_A)) {
                 $count = 0;
-                //$this->log('WENotes - successful query! Result: '. print_r($result, true));
-                $this->log('WENotes - successful query!');
+                //$this->log('WEnotes - successful query! Result: '. print_r($result, true));
+                $this->log('WEnotes - successful query!');
                 // go through the results.
                 foreach ($results as $result) {
                     $cnt = $count;

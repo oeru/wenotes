@@ -1,9 +1,9 @@
 <?php
 /*
- * base class for all WENotes classes with utility functions
+ * base class for all WEnotes classes with utility functions
  */
 
-abstract class WENotesBase {
+abstract class WEnotesBase {
 
     // construct JSON responses to AJAX queries
     public function ajax_response($a) {

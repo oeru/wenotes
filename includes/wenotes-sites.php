@@ -5,10 +5,10 @@
 
 require WENOTES_PATH . '/includes/wenotes-feed.php';
 
-class WENotesSites extends WENotesFeed {
+class WEnotesSites extends WEnotesFeed {
 
     public function init() {
-        $this->log('in WENotesSites init');
+        $this->log('in WEnotesSites init');
 
         $this->log('enabling styles');
         // set up appropriate ajax js file
@@ -100,8 +100,8 @@ class WENotesSites extends WENotesFeed {
         $this->log('site: '.print_r($site, true));
         ?>
         <div class="wrap" id="wenotes-site-detail">
-            <h2>WENotes details for <strong><?php echo $site->blogname.' ('.$site_name.')'; ?></strong></h2>
-            <p>Site users and their registered blog URLs for WENotes monitoring.</p>
+            <h2>WEnotes details for <strong><?php echo $site->blogname.' ('.$site_name.')'; ?></strong></h2>
+            <p>Site users and their registered blog URLs for WEnotes monitoring.</p>
             <table class="wenotes-table segment">
             <?php
                 // get the WP users for this site/course

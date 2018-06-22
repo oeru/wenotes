@@ -2,7 +2,7 @@
 
 require WENOTES_PATH . '/includes/wenotes-sites.php';
 
-class WENotes extends WENotesSites {
+class WEnotes extends WEnotesSites {
 
     protected static $instance = NULL; // this instance
     protected static $fresh = false; // true if freshly creating CouchDB...
@@ -15,7 +15,7 @@ class WENotes extends WENotesSites {
 
     // Do smart stuff when this object is instantiated.
     public function init() {
-        //$this->log('in WENotes init');
+        //$this->log('in WEnotes init');
         // add our updated links to the site nav links array via the filter
         add_filter('network_edit_site_nav_links', array($this, 'insert_site_nav_link'));
         // register all relevant shortcodes
@@ -26,7 +26,7 @@ class WENotes extends WENotesSites {
         add_action('show_user_profile', array($this, 'show_site_blog_urls_for_user'), 10, 1);
         add_action('edit_user_profile', array($this, 'show_site_blog_urls_for_user'), 10, 1);
         // call our ancestor's init script, too!
-        WENotesSites::init();
+        WEnotesSites::init();
     }
 
     /**
@@ -55,10 +55,10 @@ class WENotes extends WENotesSites {
     }
 
 
-    // add our WENotes Details per Site tab to the Site Edit Nav
+    // add our WEnotes Details per Site tab to the Site Edit Nav
     public function insert_site_nav_link($links) {
         $path =  '../..'.parse_url(WENOTES_URL, PHP_URL_PATH).'wenotes-site.php';
-        $links['site-wenotes-details'] =  array('label' => __('WENotes Details'),
+        $links['site-wenotes-details'] =  array('label' => __('WEnotes Details'),
             'url' => $path, 'cap' => 'manage_sites');
         return $links;
     }
@@ -91,7 +91,7 @@ class WENotes extends WENotesSites {
             <tbody>
                 <tr>
                     <th><p><?php echo $site_count_msg; ?> Any
-                      personal blog feed addresses you have specified for WENotes monitoring are show
+                      personal blog feed addresses you have specified for WEnotes monitoring are show
                       in brackets.</p>
                       <?php if ($bff_active) { echo "<p>You can update
                       your blog feed addresses using our handy <a href=\"/blog-feed-finder/\">Blog Feed Finder</a>...</p>"; } ?>
@@ -142,7 +142,7 @@ class WENotes extends WENotesSites {
      * shortcodes
      */
     public function register_shortcodes() {
-        //$this->log('in WENotes register_shortcodes');
+        //$this->log('in WEnotes register_shortcodes');
         add_shortcode( 'WEnotes', array($this, 'wenotes_func'));
         add_shortcode( 'WEnotesPost', array($this, 'wenotespost'));
     }
@@ -153,7 +153,7 @@ class WENotes extends WENotesSites {
 
     // initialise the hook methods
     public function register_hooks() {
-        //$this->log('in WENotes register_hooks');
+        //$this->log('in WEnotes register_hooks');
         /* See
          *https://core.trac.wordpress.org/browser/tags/4.7.3/src/wp-includes/ms-functions.php#L0
          */
@@ -244,7 +244,7 @@ class WENotes extends WENotesSites {
      * Wenotes Posting
      */
 
-    // submit a WENotes post from the WordPress form.
+    // submit a WEnotes post from the WordPress form.
     public static function wenotespost( $atts ) {
       	$a = shortcode_atts( array(
       	    'tag' => '',

@@ -5,7 +5,7 @@
 
 require WENOTES_PATH . '/includes/wenotes-base.php';
 
-class WENotesUtil extends WENotesBase {
+class WEnotesUtil extends WEnotesBase {
 
     // given a site object, return the site's name
     public function get_site_tag($site) {

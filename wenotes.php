@@ -45,11 +45,11 @@ define('WENOTES_MENTIONS_DB', 'mentions');
 // module details
 define('WENOTES_SLUG', 'wenotes');
 define('WENOTES_TITLE', 'WikiEducator Notes');
-define('WENOTES_MENU', 'WENotes');
+define('WENOTES_MENU', 'WEnotes');
 // admin details
 define('WENOTES_ADMIN_SLUG', 'wenotes_settings');
 define('WENOTES_ADMIN_TITLE', 'WikiEducator Notes Settings');
-define('WENOTES_ADMIN_MENU', 'WENotes Settings');
+define('WENOTES_ADMIN_MENU', 'WEnotes Settings');
 // turn on debugging with true, off with false
 define('WENOTES_DEBUG', true);
 define('LOG_STREAM', getenv('LOG_STREAM'));
@@ -62,7 +62,7 @@ require WENOTES_PATH . '/wenotes-app.php';
 
 if ( function_exists( 'add_action' ) ) {
   // this starts everything up!
-  add_action('plugins_loaded', array(WENotes::get_instance(), 'init'));
+  add_action('plugins_loaded', array(WEnotes::get_instance(), 'init'));
 } else {
 	echo 'This only works as a WordPress plugin.';
 	exit;

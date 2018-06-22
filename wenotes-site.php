@@ -1,6 +1,6 @@
 <?php
 /*
- *  Displays per-site WENotes information, e.g. list of registered user blog URLs
+ *  Displays per-site WEnotes information, e.g. list of registered user blog URLs
  *  for feed harvesting
  */
 
@@ -15,9 +15,9 @@ if ( ! current_user_can( 'manage_sites' ) ) {
 
 get_current_screen()->add_help_tab( array(
 	'id'      => 'wenotes-details',
-	'title'   => __( 'WENotes Details' ),
+	'title'   => __( 'WEnotes Details' ),
 	'content' =>
-		'<p>' . __( '<strong>WENotes Details</strong> &mdash; This page shows a list of learners (with a current WordPress user account) associated with this Course, and those who have registered blog URLs which WENotes periodically checks for suitably tagged posts to aggregate into the Course feed.' ) . '</p>'
+		'<p>' . __( '<strong>WEnotes Details</strong> &mdash; This page shows a list of learners (with a current WordPress user account) associated with this Course, and those who have registered blog URLs which WEnotes periodically checks for suitably tagged posts to aggregate into the Course feed.' ) . '</p>'
 ) );
 
 get_current_screen()->set_help_sidebar(
@@ -137,7 +137,7 @@ require( ABSPATH . 'wp-admin/admin-header.php' );
  * see http://stackoverflow.com/questions/13960514/how-to-adapt-my-plugin-to-multisite/
  */
 if (is_admin() && is_multisite()) {
-    $wenotes = WENotes::get_instance();
+    $wenotes = WEnotes::get_instance();
     $wenotes->log('testing!!');
 }
 ?>
