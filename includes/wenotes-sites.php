@@ -5,10 +5,10 @@
 
 require WENOTES_PATH . '/includes/wenotes-feed.php';
 
-class WEnotesSites extends WEnotesFeed {
+class WENotesSites extends WENotesFeed {
 
     public function init() {
-        $this->log('in WEnotesSites init');
+        $this->log('in WENotesSites init');
 
         $this->log('enabling styles');
         // set up appropriate ajax js file
@@ -101,7 +101,14 @@ class WEnotesSites extends WEnotesFeed {
         ?>
         <div class="wrap" id="wenotes-site-detail">
             <h2>WEnotes details for <strong><?php echo $site->blogname.' ('.$site_name.')'; ?></strong></h2>
-            <p>Site users and their registered blog URLs for WEnotes monitoring.</p>
+            <p>Site users and their registered blog feed addresses for WENotes monitoring.</p>
+            <p>Administrators can update feed URIs or delete them altogether on a per user basis.
+            Note that you must provide well constructed (with a leading Scheme, e.g. http:// or https://) for feed URIs.</p>
+            <?php
+            if ($this->bff_enabled()) {
+                echo "<p>You can test blog feed URIs using the <a href='/blog-feed-finder/' target='_blank'>Blog Feed Finder</a> on this site. You can then copy-and-paste valid feed URIs into this form.</p>";
+            }
+            ?>
             <table class="wenotes-table segment">
             <?php
                 // get the WP users for this site/course

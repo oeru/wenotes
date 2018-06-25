@@ -78,13 +78,6 @@ class WEnotes extends WEnotesSites {
         } else {
             $site_count_msg = 'You are not registered for any courses.';
         }
-        // if the blog-feed-finder plugin is enabled, include a links
-        // to it for the benefit of learners
-        $bff_active = false;
-        if (is_plugin_active('blog-feed-finder/blog-feed-finder.php')) {
-            $this->log('the Blog Feed Finder plugin is active!');
-            $bff_active = true;
-        }
         ?>
         <h2 class="wenotes-site">OERu Courses</h2>
         <table class="form-table wenotes-sites">
@@ -93,7 +86,7 @@ class WEnotes extends WEnotesSites {
                     <th><p><?php echo $site_count_msg; ?> Any
                       personal blog feed addresses you have specified for WEnotes monitoring are show
                       in brackets.</p>
-                      <?php if ($bff_active) { echo "<p>You can update
+                      <?php if ($this->bff_enabled()) { echo "<p>You can update
                       your blog feed addresses using our handy <a href=\"/blog-feed-finder/\">Blog Feed Finder</a>...</p>"; } ?>
                     </th>
                     <td>
@@ -225,6 +218,19 @@ class WEnotes extends WEnotesSites {
     public function add_user_to_site($user_id, $role, $blog_id) {
         // we want to make sure any added URL is pushed to CouchDB...
         $this->log('in hook add_user_to_site');
+        // check for any past valid blog feed URLs and make the most recent
+        // the default for this course
+        if ($feed = $this->get_default_feed_for_user($user_id)) {
+            $this->log('Found a default feed URL: '.$feed['url'].' ('.$feed['type'].') for user '.
+               $user_id.' from course '.$feed['site_id'].', now set it for this course '.$blog_id);
+            if ($this->update_feed_for_user_for_site($user_id, $blog_id, $feed['url'], $feed['type'])) {
+                $this->log('Assigned feed '.$url.' for user '.
+                   $user_id.' and course '.$blog_id);
+            } else {
+                $this->log('This was probably an invalid feed ');
+            }
+        }
+
     }
 
     /**

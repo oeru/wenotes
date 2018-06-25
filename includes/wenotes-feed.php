@@ -58,7 +58,7 @@ class WEnotesFeed extends WEnotesCouch {
     // setting the feed type along the way, returning false if it fails to set
     // the value or find a feed type...
     // returns a type, or false on failure.
-    public function update_feed_for_user_for_site($user_id, $site_id, $url) {
+    public function update_feed_for_user_for_site($user_id, $site_id, $url, $type = '') {
         $new_url = sanitize_text_field($url);
         // get the old URL and make sure it's not the same as the new URL...
         if ($old_url = $this->get_feed_for_user_for_site($user_id, $site_id)) {
@@ -66,7 +66,7 @@ class WEnotesFeed extends WEnotesCouch {
                 $this->log('No change necessary - the old and new URL are both '. $old_url);
                 $this->messages[] = array(
                     'message' => 'No update necessary - same URL!');
-                if ($type = $this->get_feed_type($new_url)) {
+                if ($type != '' || $type = $this->get_feed_type($new_url)) {
                     $this->log('found feed of type '.$type.' at '.$new_url.'.');
                     $this->messages[] = array(
                         'message' => 'found '.$type.' feed at '.$new_url.'.');
@@ -82,7 +82,7 @@ class WEnotesFeed extends WEnotesCouch {
             $this->log('setting feed to '.$new_url.' of type '.$type);
         }
         // get the blog URL set for a user_id and site_id combo
-        if ($type = $this->get_feed_type($new_url)) {
+        if ($type != '' || $type = $this->get_feed_type($new_url)) {
             $this->log('found feed of type '.$type.' at '.$new_url.'.');
         } else {
             $this->errors[] = array('error' => 'No recognisable feed found at '.$new_url.'.');
@@ -137,6 +137,57 @@ class WEnotesFeed extends WEnotesCouch {
         return false;
     }
 
+    // get any feed URLs a user has defined for any course sites, trying to pick
+    // the best if there're multiple defined
+    // returns array with 'site_id', 'url', and feed 'type' if found.
+    public function get_default_feed_for_user($user_id) {
+        // first get all the metadata for the user if they have any
+        $this->log('finding any feed urls for user '.$user_id);
+        if ($meta = get_user_meta($user_id)) {
+            // filter for our terms of interest: url_???
+            $this->log('filtering out url settings from '.count($meta).' values.');
+            $sites = array();
+            foreach($meta as $key => $val) {
+                $this->log('key '.$key.', value '.$val);
+                $result = explode('_',$key);
+                if ($result != '_') {
+                    // found a url reference
+                    if ($result[0] == 'url') {
+                        $sites[$results[1]]['url'] = $val;
+                    } else if ($result[0] == 'feedtype') {
+                        $sites[$results[1]]['type'] = $val;
+                    }
+                }
+            }
+            // if we found any...
+            if (count($sites) > 0) {
+                // first sort in reverse numerical order by key, i.e. site_id
+                // it's likely that the most recent Course/site will have the
+                // most up-to-date URL...
+                krsort($sites);
+                $found = array();
+                foreach($sites as $site_id => $site) {
+                    // we really only want saved feed URLs also accompanied by a
+                    // feed type, as these are proven legit. If none exists,
+                    // we'll return false.
+                    if (isset($site['url']) && isset($site['type'])) {
+                        $found[] = array(
+                            'site_id' => $site_id,
+                            'url' => $site['url'],
+                            'type' => $site['type']
+                        );
+                    }
+                }
+                if (count($found) > 0) {
+                    // return the only or first one found, which should be the
+                    // one most recently created...
+                    return $found[0];
+                }
+            }
+        }
+        // if nothing above is true, return false
+        return false;
+    }
 
     // check and see if there are any references to feeds in the content of the page
     public function get_feed_type($url) {

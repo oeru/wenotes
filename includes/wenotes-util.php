@@ -18,4 +18,16 @@ class WEnotesUtil extends WEnotesBase {
     	echo json_encode( $a );
     	die();
     }
+
+    // if the blog-feed-finder plugin is enabled, include a links
+    // to it for the benefit of learners
+    public function bff_enabled() {
+        $bff_active = false;
+        if (is_plugin_active('blog-feed-finder/blog-feed-finder.php')) {
+            $this->log('the Blog Feed Finder plugin is active!');
+            $bff_active = true;
+        }
+        return $bff_active;
+    }
+
 }
