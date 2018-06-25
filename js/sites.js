@@ -18,7 +18,7 @@ function get_feed_details(id) {
 // jQuery seletors and related functions in that context
 jQuery(document).ready(function() {
     var $ = jQuery;
-    var ptime = 2000; // time to display
+    var ptime = 3000; // time to display
     var ftime = 1000; // time to fade
     LOG('wenotes-site', wenotes_site_data);
 
@@ -28,7 +28,9 @@ jQuery(document).ready(function() {
         show_feedback(user_id, site_id);
         $('#feedback-'+user_id+'-'+site_id).addClass('success');
         set_feedback(user_id, site_id, messages);
-        hide_feedback(user_id, site_id);
+        if (messages instanceof Array) { length = messages.length; }
+        else { length = 1; }
+        hide_feedback(user_id, site_id, length);
     }
 
     // display failure messages
@@ -37,7 +39,9 @@ jQuery(document).ready(function() {
         show_feedback(user_id, site_id);
         $('#feedback-'+user_id+'-'+site_id).addClass('error');
         set_feedback(user_id, site_id, error);
-        hide_feedback(user_id, site_id);
+        if (error instanceof Array) { length = error.length; }
+        else { length = 1; }
+        hide_feedback(user_id, site_id, length);
     }
 
     function set_feedback(user_id, site_id, msg) {
@@ -63,11 +67,11 @@ jQuery(document).ready(function() {
         $('#feedback-'+user_id+'-'+site_id).show();
     }
 
-    function hide_feedback(user_id, site_id) {
-        LOG('hiding feedback');
+    function hide_feedback(user_id, site_id, num = 1) {
+        LOG('hiding feedback - num ', num);
         $('#feedback-'+user_id+'-'+site_id).animate(
             {opacity: 0.9},
-            {duration: ptime, complete: function() {
+            {duration: ptime * num, complete: function() {
                 $(this).hide(ftime);
             }, function() {
                 $('#row-'+user_id+'-'+site_id).hide();
