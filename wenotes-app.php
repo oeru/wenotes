@@ -72,7 +72,7 @@ class WEnotes extends WEnotesSites {
         unset($sites[1]);
         // get the total
         if (count($sites) == 1) {
-            $site_count_msg = 'You are registerd for one course';
+            $site_count_msg = 'You are registered for one course';
         } else if (count($sites) > 1) {
             $site_count_msg = 'You are registered for '.count($sites).' courses.';
         } else {
