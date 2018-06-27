@@ -7,18 +7,6 @@ require WENOTES_PATH . '/includes/wenotes-couch.php';
 
 class WEnotesFeed extends WEnotesCouch {
 
-    // feed types
-    protected $feed_types = array(
-        'application/atom+xml' => 'Atom',
-        'application/rss+xml' => 'RSS',
-        'application/json' => 'JSON',
-    );
-    protected $feed_classes = array(
-         'application/atom+xml' => 'wenotes-atom',
-         'application/rss+xml' => 'wenotes-rss',
-         'application/json' => 'wenotes-rss',
-         'application/xml' => 'wenotes-default'
-    );
     protected $errors = array(), $messages = array();
 
 
@@ -34,13 +22,13 @@ class WEnotesFeed extends WEnotesCouch {
     }
 
     // given a site id and user id, get any associated blog url or return false
-    public function get_feed_type_for_user_for_site($user_id, $site_id, $url) {
+    public function get_feed_type_for_user_for_site($user_id, $site_id, $url, $test = true) {
         // get the blog URL set for a user_id and site_id combo
         if ($url != '') {
             if ($type = get_user_meta($user_id, 'feedtype_'.$site_id, true)) {
                 $this->log('found feed type '.$type.' for user '.$user_id.' and site '.$site_id);
                 return $type;
-            } else if ($type = $this->get_feed_type($url)) {
+            } else if ($test && $type = $this->get_feed_type($url)) {
                 if (update_user_meta($user_id, 'feedtype_'.$site_id, $type)) {
                     $this->log('successfully set user '.$user_id.' feed type for site '.
                         $site_id.' to '.$type);
@@ -142,13 +130,13 @@ class WEnotesFeed extends WEnotesCouch {
     // returns array with 'site_id', 'url', and feed 'type' if found.
     public function get_default_feed_for_user($user_id) {
         // first get all the metadata for the user if they have any
-        $this->log('finding any feed urls for user '.$user_id);
+        //$this->log('finding any feed urls for user '.$user_id);
         if ($meta = get_user_meta($user_id)) {
             // filter for our terms of interest: url_???
-            $this->log('filtering out url settings from '.count($meta).' values.');
+            //$this->log('filtering out url settings from '.count($meta).' values.');
             $sites = array();
             foreach($meta as $key => $val) {
-                $this->log('key '.$key.', value '.$val);
+                //$this->log('key '.$key.', value '.$val);
                 $result = explode('_',$key);
                 if ($result != '_') {
                     // found a url reference
@@ -173,8 +161,8 @@ class WEnotesFeed extends WEnotesCouch {
                     if (isset($site['url']) && isset($site['type'])) {
                         $found[] = array(
                             'site_id' => $site_id,
-                            'url' => $site['url'],
-                            'type' => $site['type']
+                            'url' => $site['url'][0],
+                            'type' => $site['type'][0]
                         );
                     }
                 }
@@ -189,8 +177,34 @@ class WEnotesFeed extends WEnotesCouch {
         return false;
     }
 
+    // get the content type from the returned headers for a URL
+    public function get_content_type($url) {
+        if ($headers = @get_headers($url)) {
+            foreach ($headers as $header) {
+                $line = explode(': ', $header);
+                if ($line[0] == 'Content-Type') {
+                    $content_string = explode(';', $line[1]);
+                    $content_type = $content_string[0];
+                    $content_charset = $content_string[1]; // we're ignoring this for the time being
+                    $this->log('content type: '.$content_type.', charset: '.$content_charset);
+                    return $content_type;
+                }
+            }
+        }
+        return false;
+    }
+
     // check and see if there are any references to feeds in the content of the page
     public function get_feed_type($url) {
+        $this->log('checking the returned content type '.$url.' to see if it\'s a feed.');
+        // 1. Check if the page is, itself, a feed, by checking the Content-Type header
+        if ($type = $this->get_content_type($url)) {
+            $this->log('found a feed of '.$type.' at '.$url);
+        }
+        if (array_key_exists($type, $this->feed_types)) {
+            $this->log('***** bingo! We\'ve got a valid feed type '.$type);
+            return $type;
+        }
         $this->log('checking the content of '.$url.' to work out the feed type.');
         // failing that, get the actual HTML...
         $content = file_get_contents($url, FALSE, NULL, 0, WENOTES_MAX_FILE_READ_CHAR);
@@ -257,4 +271,5 @@ class WEnotesFeed extends WEnotesCouch {
         }
         return $msg;
     }
+
 }

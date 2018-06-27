@@ -112,9 +112,7 @@ class WENotesSites extends WENotesFeed {
             <table class="wenotes-table segment">
             <?php
                 // get the WP users for this site/course
-                $searchFilter = 'blog_id='.$site_id.
-                    '&orderby=display_name&orderby=nicename';
-                $users = get_users($searchFilter);
+                $users = $this->get_users_for_site($site_id);
                 $this->log('users for blog '.$site_id.':'. print_r($users,true));
                 // now find the Mautic contacts corresponding to the
                 // users, and whether or not they're in the segment
@@ -166,6 +164,14 @@ class WENotesSites extends WENotesFeed {
             </table>
         </div>
         <?php
+    }
+
+    public function get_users_for_site($site_id) {
+        // get the WP users for this site/course
+        $searchFilter = 'blog_id='.$site_id.
+            '&orderby=display_name&orderby=nicename';
+        $users = get_users($searchFilter);
+        return $users;
     }
 
     public function alter_url_form($user_id, $site_id, $url, $type, $status = '') {
@@ -319,5 +325,104 @@ class WENotesSites extends WENotesFeed {
         return true;
     }
 
+    // finds sites, finds users for site, and feeds defined
+    public function survey_feeds($get_type = false) {
+        $survey = array();
+        // get sites
+        $sites = get_blog_list(0, 'all');
+        if (count($sites)) {
+            $this->log('found '.count($sites).' sites');
+            foreach($sites as $site) {
+                $site_id = $site['blog_id'];
+                if ($site_id == 1) {
+                    $this->log('skipping default site (1)');
+                    continue;
+                }
+                $this->log('site '.$site_id.': '.$site['path']);
+                $survey[$site_id]['path'] = $site['path'];
+                // get the users for the site
+                $users = $this->get_users_for_site($site_id);
+                if (count($users)) {
+                    foreach($users as $user) {
+                        $user_id = $user->ID;
+                        $login = $user->data->user_login;
+                        $email = $user->data->user_email;
+                        $this->log('user '.$user_id.': '.$login.
+                            ', '.$email.'.');
+                        $survey[$site_id]['users'][$user_id]['name'] = $login;
+                        $survey[$site_id]['users'][$user_id]['email'] = $email;
+                        // get the "default URL" for each user.
+                        if ($default_url = $this->get_default_feed_for_user($user_id)) {
+                            $this->log('Default!!!!!!! '.print_r($default_url, true));
+                            $url = $default_url['url'];
+                            $type = $default_url['type'];
+                            $this->log('++++ default feed for '.$email.': '.$url.'('.$type.')');
+                            // add to Object
+                            $survey[$site_id]['users'][$user_id]['default']['url'] = $url;
+                            $survey[$site_id]['users'][$user_id]['default']['type'] = $type;
+                        } else {
+                            //$this->log('no default feed for '.$email.'.');
+                        }
+                        // get any feed and type for this user + site
+                        if ($feed = $this->get_feed_for_user_for_site($user_id, $site_id)) {
+                            $survey[$site_id]['users'][$user_id]['feed']['url'] = $feed;
+                            if ($type = $this->get_feed_type_for_user_for_site($user_id, $site_id, $feed, $get_type)) {
+                                $this->log($login.': '.$feed.' ('.$type.')');
+                                $survey[$site_id]['users'][$user_id]['feed']['type'] = $type;
+                            } else {
+                                $this->log($login.': '.$feed.' (???)');
+                            }
+                        }
 
+                    }
+                } else {
+                    $this->log('site '.$site_id.' has no registered users');
+                }
+            }
+            return $survey;
+        }
+        return false;
+    }
+    // finds sites, finds users for site, and feeds defined
+    public function survey_feeds_print($just_urls = false) {
+        // build the array, don't find types of feeds
+        if ($survey = $this->survey_feeds(false)) {
+            //$this->log('survey: '.print_r($survey, true));
+            echo '<ul class="sites">';
+            foreach($survey as $site_id => $site) {
+                $site_name = $this->get_site_tag(get_site($site_id));
+                echo '<li class="site"><p class="site"><a href="'.
+                    WENOTES_URL.'wenotes-site.php?id='.$site_id.
+                    '">'.$site_name.'</a>&nbsp;('.$site_id.
+                    ') - '.$site['path'].'</p>';
+                if (isset($site['users'])) {
+                    echo '<ul class="users">';
+                    foreach($site['users'] as $user_id => $user) {
+                        if ($just_urls && !isset($user['feed'])) {
+                            continue;
+                        }
+                        echo '<li class="user">';
+                        echo '<p class="user">'.$user['name'].' ('.$user['email'].')';
+                        if (isset($user['feed'])) {
+                            echo ' '.$user['feed']['url'];
+                            if (isset($user['feed']['type'])) {
+                                echo ' ('.$this->feed_types[$user['feed']['type']].')';
+                            }
+                        }
+                        if (isset($user['default'])) {
+                            echo ' Default: '.$user['default']['url'];
+                            if (isset($user['default']['type'])) {
+                                echo ' ('.$this->feed_types[$user['default']['type']].')';
+                            }
+                        }
+                        echo '</p>';
+                        echo '</li>';
+                    }
+                    echo '</ul>';
+                }
+                echo '</li>';
+            }
+            echo '</ul>';
+        }
+    }
 }

@@ -28,7 +28,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-define( 'WENOTES_VERSION', '2.1.0' );
+define( 'WENOTES_VERSION', '2.2.0' );
 // plugin computer name
 define('WENOTES_NAME', 'wenotes');
 // current version

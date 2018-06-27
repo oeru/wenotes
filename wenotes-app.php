@@ -23,8 +23,8 @@ class WEnotes extends WEnotesSites {
         // register all relevant hooks
         $this->register_hooks();
         // set up the custom user profile fields for per-site blog URLs
-        add_action('show_user_profile', array($this, 'show_site_blog_urls_for_user'), 10, 1);
-        add_action('edit_user_profile', array($this, 'show_site_blog_urls_for_user'), 10, 1);
+        add_action('show_user_profile', array($this, 'get_feeds_for_user'), 10, 1);
+        add_action('edit_user_profile', array($this, 'get_feeds_for_user'), 10, 1);
         // call our ancestor's init script, too!
         WEnotesSites::init();
     }
@@ -64,7 +64,7 @@ class WEnotes extends WEnotesSites {
     }
 
     // show site_blog_urls for a given user
-    public function show_site_blog_urls_for_user($user) {
+    public function get_feeds_for_user($user) {
         $sites = get_blogs_of_user($user->ID);
         $this->log('user sites: '. print_r($sites, true));
         // we don't want to count the default site with, id = 1

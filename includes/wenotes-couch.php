@@ -8,6 +8,18 @@ require WENOTES_PATH . '/includes/wenotes-util.php';
 class WEnotesCouch extends WEnotesUtil {
 
     protected static $couchdb; // CouchDB client object
+    // feed types
+    protected $feed_types = array(
+        'application/atom+xml' => 'Atom',
+        'application/rss+xml' => 'RSS',
+        'application/json' => 'JSON',
+    );
+    protected $feed_classes = array(
+         'application/atom+xml' => 'wenotes-atom',
+         'application/rss+xml' => 'wenotes-rss',
+         'application/json' => 'wenotes-rss',
+         'application/xml' => 'wenotes-default'
+    );
 
     /**
      *  CouchDB integration
@@ -142,10 +154,10 @@ class WEnotesCouch extends WEnotesUtil {
 
     // update the feed URL for an existing user_id (from user object)
     // & site_id, unless there isn't one, in which case set it.
-    public function update_registered_feed($user, $site_id, $newurl) {
+    public function update_registered_feed($user, $site_id, $newurl, $type) {
         $user_id = $user->ID;
         $this->log('updating registered blog url for user '.$user_id.' and site '.$site_id
-            .' to '.$newurl);
+            .' to '.$newurl.' ('.$this->feed_types[$type].')');
         $couch = $this->couchdb();
         $couch->setDatabase(WENOTES_BLOGFEEDS_DB);
         try {
@@ -159,11 +171,12 @@ class WEnotesCouch extends WEnotesUtil {
                 //$this->log('CouchDB result (update_registered_feed): '. print_r($result, true));
                 $this->log('CouchDB data array to change: '. print_r($doc, true));
                 // setting URL to new value, if it has a new value...
-                if ($doc['value']['url'] !== $newurl) {
+                if ($doc['value']['feed_url'] !== $newurl) {
                     $doc_id = $doc['value']['_id'];
                     $doc_rev = $doc['value']['_rev'];
-                    $this->log('updating url in doc (_id = '.$doc_id.') from '.$doc['value']['url'].' to '.$newurl.'.');
-                    $doc['value']['url'] = $newurl;
+                    $this->log('updating url in doc (_id = '.$doc_id.') from '.$doc['value']['feed_url'].' to '.$newurl.'.');
+                    $doc['value']['feed_url'] = $newurl;
+                    $doc['value']['feed_type'] = $type;
                     //$doc_json = json_encode($doc);
                     $this->log('json encoded doc: '. print_r($doc['value'], true));
                     try {
@@ -183,7 +196,8 @@ class WEnotesCouch extends WEnotesUtil {
                 $record = array();
                 $record['user_id'] = $user_id;
                 $record['site_id'] = $site_id;
-                $record['url'] = $newurl;
+                $record['feed_url'] = $newurl;
+                $record['feed_type'] = $type;
                 $record['spam'] = false;
                 $record['deleted'] = false;
                 $record['user_nicename'] = $user->user_nicename;
@@ -271,28 +285,10 @@ class WEnotesCouch extends WEnotesUtil {
             $feed['site_id'] = $site_id;
             $feed['tag'] = $this->get_site_tag(get_site($site_id));
             // web URL and check if it includes RSS
-            if (isset($record['url']) && isset($record['feed_url']) && isset($record['feed_type'])) {
+            if (isset($record['feed_url']) && isset($record['feed_type'])) {
                 $this->log('found a fully documented feed: '.
                     $record['feed_url'].'('.$record['feed_type'].') - the saved url: '
                     .$record['url'].' and root url: '. $record['url_host']);
-            } else if (isset($record['meta_value']) && !isset($record['url'])) {
-                // check exiting URL to see if it's a valid feed...
-                $this->log('checking meta_value: '.print_r($record['meta_value'], true));
-                if ($urls = $this->check_for_feed($record['meta_value'])) {
-                    $feed['url'] = $urls['url'];
-                    $feed['url_host'] = $urls['url_host'];
-                    $feed['feed_url'] = $urls['feed_url'];
-                    $feed['feed_type'] = $urls['feed_type'];
-                }
-            } else if (isset($record['url']) && !isset($record['feed_url'])) {
-                // check exiting URL to see if it's a valid feed...
-                $this->log('testing URL '.$record['url'].' for feed.');
-                if ($urls = $this->check_for_feed($record['url'])) {
-                    $feed['url'] = $urls['url'];
-                    $feed['url_host'] = $urls['url_host'];
-                    $feed['feed_url'] = $urls['feed_url'];
-                    $feed['feed_type'] = $urls['feed_type'];
-                }
             } else {
                 # no url set... bail.
                 $this->log('no URL set! No reason to register this record: '.
@@ -401,17 +397,15 @@ class WEnotesCouch extends WEnotesUtil {
 
     // submit a feed registration to CouchDB using a feed object
     public function register_feed($feed) {
-        //$this->log('Feed object: '. print_r($feed, true));
         // make the connection
         $couch = $this->couchdb();
         $couch->setDatabase(WENOTES_BLOGFEEDS_DB);
         // get the current time
 		    list($usec, $ts) = explode(' ', microtime());
         $feed['created_at'] = date('r', $ts);
-		    $feed['we_timestamp'] = date('Y-m-d\TH:i:s.000\Z', $ts);
+	    $feed['we_timestamp'] = date('Y-m-d\TH:i:s.000\Z', $ts);
         //$this->log('writing feed description: '. print_r($feed, true));
         try {
-            //$result = $couch->get('_all_docs');
             $result = $couch->post($feed);
             //$this->log('CouchDB result: '. print_r($result, true));
         } catch (SagCouchException $e) {
@@ -431,7 +425,7 @@ class WEnotesCouch extends WEnotesUtil {
         $couch = $this->couchdb();
         $couch->setDatabase(WENOTES_BLOGFEEDS_DB);
         // get the current time
-	    	list($usec, $ts) = explode(' ', microtime());
+    	list($usec, $ts) = explode(' ', microtime());
         $feed['created_at'] = date('r', $ts);
 	    $feed['we_timestamp'] = date('Y-m-d\TH:i:s.000\Z', $ts);
         //$this->log('writing feed description: '. print_r($feed, true));
@@ -445,7 +439,7 @@ class WEnotesCouch extends WEnotesUtil {
     }
 
 
-    // remove an feed records with these details from CouchDB
+    // remove a feed records with these details from CouchDB
     public function deregister_feed($unfeed) {
         $this->log('Removing feed object: '. print_r($unfeed, true));
     }
