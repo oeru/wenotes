@@ -22,7 +22,8 @@ if (is_admin() && is_multisite()) {
 
 
     //$wenotes->survey_feeds_print(false);
-    $wenotes->survey_feeds_print(true);
+    //$wenotes->survey_feeds_print(true);
+    $wenotes->update_all_feed_registrations();
 }
 ?>
 <h1>Test WEnotes CouchDB integration</h1>

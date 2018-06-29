@@ -198,7 +198,7 @@ class WEnotes extends WEnotesSites {
             $new_url = htmlspecialchars($_POST['courseblog']);
             $this->log('current new URL: '. $new_url);
             if ($new_url != $old_url) {
-                $this->update_registered_feed($user, $site_id, $new_url);
+                $this->update_registered_feed($user->ID, $site_id, $new_url);
             }
         }
         // add meta data to user data

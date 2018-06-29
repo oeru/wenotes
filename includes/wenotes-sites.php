@@ -22,11 +22,6 @@ class WENotesSites extends WENotesFeed {
             'ajaxurl' => admin_url( 'admin-ajax.php' ),
             'site_nonce' => wp_create_nonce('wenotes-site-nonse')
         ));
-        //$this->site_styles();
-        /*add_action('wp_enqueue_style', array($this, 'site_styles'));
-        //$this->site_scripts();
-        add_action('wp_enqueue_script', array($this, 'site_scripts'));*/
-
         $this->log('adding ajax actions: alter');
         add_action( 'wp_ajax_wenotes_alter', array($this, 'ajax_alter'));
         $this->log('adding ajax actions: delete');
@@ -38,9 +33,6 @@ class WENotesSites extends WENotesFeed {
         $this->log('in site_init, id = '. $id);
         $this->site_tab($id);
         $this->log('populated site tab');
-
-        //$this->log('sorting out URL data');
-        //$this->site_urldata($id);
     }
 
     // handle domain update
@@ -251,64 +243,8 @@ class WENotesSites extends WENotesFeed {
                         'user_nicename' => $wp_username,
                         'display_name' => $wp_name
                     );
-        /*            $user_list_python[] = "    { 'from_user': '".$wp_username."', 'from_user_name': '".$wp_name
-                        ."', 'from_user_wp_id': ".$user_id.", 'site_id': ".$site_id
-                        ."', 'from_user_email': '".$wp_email.", 'tag': '".$site_name
-                        ."', 'feed_url': '".$blog_url
-                        ."', 'we_source': 'array-to-feeds.py', 'we_wp_version': 'na', 'type': 'feed' },\n";
-                    $user_list_php[] = "    array('from_user' =>'".$wp_username."', 'from_user_name'=>'".$wp_name
-                        ."', 'from_user_wp_id'=>".$user_id.", 'site_id'=>".$site_id
-                        ."', 'from_user_email'=>'".$wp_email.", 'tag'=>'".$site_name
-                        ."', 'feed_url'=>'".$blog_url
-                        ."', 'we_source'=>'array-to-feeds.py', 'we_wp_version'=>'na', 'type'=>'feed' ),\n"; */
                 }
             }
-        /*    $this->log('writing '.count($user_list_python).' entries.');
-            // python first
-            if ($handle = fopen($outfile.'py', 'w')) {
-                $this->log('print out of users with URLs suitable for a Python array going into '.$outfile.'py');
-                // first the Python array
-                fwrite($handle, 'feeds = ['."\n");
-                foreach($user_list_python as $user) {
-                    fwrite($handle, $user);
-                }
-                fwrite($handle, "]\n");
-                fclose($handle);
-                $this->log('finished writing '.$outfile.'py');
-            } else {
-                $this->log('couldn\'t create '.$outfile.'py');
-            }
-            // now php
-            if ($handle = fopen($outfile.'php', 'w')) {
-                $this->log('print out of users with URLs suitable for a PHP array going into '.$outfile.'php');
-                // then the php version of the array
-                fwrite($handle, 'feeds = array('."\n");
-                foreach($user_list_php as $user) {
-                    fwrite($handle, $user);
-                }
-                fwrite($handle, ");\n");
-                // finish off
-                fclose($handle);
-                $this->log('finished writing '.$outfile.'php');
-            } else {
-                $this->log('couldn\'t create '.$outfile.'php');
-            } */
-        /*    if ($cnt = count($records)) {
-                $this->log('Registering '.$cnt.' user blog urls.');
-                $count = 0;
-                foreach($records as $record) {
-                    if ($this->register_feed_from_record($record)) {
-                        $count++;
-                        $this->log('registered feed '.$count.'/'.$cnt.' for user: '.
-                            $record['display_name'].'('.$record['user_id'].')');
-                    } else {
-                        $this->log('failed to register feed for user: '.
-                            $record['display_name'].'('.$record['user_id'].')');
-                    }
-                }
-            } else {
-                $this->log('No records created')    ;
-            } */
         } else {
             $this->log('no users retrieved...');
         }
@@ -361,7 +297,7 @@ class WENotesSites extends WENotesFeed {
                             $survey[$site_id]['users'][$user_id]['default']['url'] = $url;
                             $survey[$site_id]['users'][$user_id]['default']['type'] = $type;
                         } else {
-                            //$this->log('no default feed for '.$email.'.');
+                            $this->log('no default feed for '.$email.'.');
                         }
                         // get any feed and type for this user + site
                         if ($feed = $this->get_feed_for_user_for_site($user_id, $site_id)) {
@@ -424,5 +360,110 @@ class WENotesSites extends WENotesFeed {
             }
             echo '</ul>';
         }
+    }
+
+    // go through all the users on the site, and update any feed URL data in CouchDB:
+    public function update_all_feed_registrations() {
+        // build the array, don't find types of feeds
+        if ($feedusers = $this->build_user_feed_site_array()) {
+            //$this->log('survey: '.print_r($survey, true));
+            $new = 0; $existing = 0;
+            //ksort($feedusers);
+            echo '<div class="wenotes-rego">';
+            foreach($feedusers as $user_id => $userdata) {
+                foreach($userdata['feeds'] as $url => $feeddata) {
+                    $this->log('url '.$url.' and data: '.print_r($feeddata, true));
+                    $type = $feeddata['type'];
+                    $site_ids = $feeddata['site_ids'];
+                    $this->log('tracking down site_ids array: '.print_r($site_ids, true));
+                    $tags = $this->get_site_tags_for_ids($site_ids);
+                    $this->log('registering feed for '.$userdata['display_name'].' ('.
+                        $userdata['user_nicename'].'), setting '.$url.
+                        ' ('.$this->feed_types[$type].')');
+                    if ($this->register_new_feed_for_user($user_id, $site_ids, $url, $type)) {
+                        $new++;
+                        $msg = $new.' registered feed for '.$userdata['display_name'].' ('.
+                            $userdata['user_nicename'].'), setting '.$url.
+                            ' ('.$this->feed_types[$type].') for tags: '.$this->print_tags($tags);
+                        $this->log($msg);
+                        echo '<p class="new">'.$msg.'</p>';
+                    } else {
+                        $existing++;
+                        $msg = $existing.' existing feed for '.$userdata['display_name'].' ('.
+                            $userdata['user_nicename'].'), leaving '.$url.
+                            ' ('.$this->feed_types[$type].') unchanged for tags: '.$this->print_tags($tags);
+                        $this->log($msg);
+                        echo '<p class="existing">'.$msg.'</p>';
+                    }
+                }
+            }
+            $this->log('Phew. '.$new.' new feeds registered.');
+            echo '<p>'.$new.' new feeds registered.</p>';
+            echo '<p>'.$existing.' existing feeds checked and left unchanged.</p>';
+            echo '</div>';
+        }
+    }
+
+    // create a mixed array of users, sites to which each is registered,
+    // the complexity of this function is due to the fact that you can't
+    // search Wordpress Meta keys by wildcard... :(
+    public function build_user_feed_site_array() {
+        // get a list of all active blogs/sites/courses:
+        $sites_args = array(
+            'site_not_in' => array(1),
+            'archived' => 0,
+            'spam' => 0,
+            'deleted' => 0,
+        );
+        // this will be a list of users with feeds, and for which site.
+        $feedusers = array();
+        // for each site, get a list of users who have defined a feed URL...
+        if ($sites = get_sites($sites_args)) {
+            foreach($sites as $site) {
+                // get the site ID so we can construct the meta_key...
+                $site_id = get_object_vars($site)["blog_id"];
+                // skip the default site
+                if ($site_id == 1) { continue; }
+                $this->log('----- working on site '.$site_id.' ('.$this->get_site_tag($site).')');
+                // get all Users who have url_* defined as a meta key...
+                $user_args = array(
+                    'blog_id' => $site_id, // just on this site
+                    'meta_key' => 'url_'.$site_id,
+                );
+                // this should be all users who have a feed defined for the site
+                $users = get_users($user_args);
+                $this->log('found '.count($users).' user(s) with a feed defined.');
+                foreach($users as $user) {
+                    // get a list of all sites for which they're registered and have specified
+                    // a feed url...
+                    $user_id = $user->ID;
+                    $this->log('       ----- working with user '.$user->dispay_name.' ('.$user_id.')');
+                    if ($url = get_user_meta($user_id, 'url_'.$site_id, true)) {
+                        $this->log('          - url '.$url);
+                        if ($type = get_user_meta($user_id, 'feedtype_'.$site_id, true)) {
+                            $this->log('          - type '.$this->feed_types[$type]);
+                            $feedusers[$user_id]['display_name'] = $user->display_name;
+                            $feedusers[$user_id]['user_nicename'] = $user->user_nicename;
+                            $feedusers[$user_id]['feeds'][$url]['type'] = $type;
+                            // add element for this site_id
+                            $feedusers[$user_id]['feeds'][$url]['site_ids'][] = $site_id;
+                            $this->log('working on user '.$user_id.', url '.$url.' ('.$type.') and adding site_id '.$site_id);
+                        }
+                    }
+                }
+                $this->log('----- done with site '.$site_id);
+            }
+        }
+        if (count($feedusers) > 0) {
+            //$this->log('returning feedusers: '.print_r($feedusers, true));
+            return $feedusers;
+        }
+        return false;
+    }
+
+    // return an array of tags as a string
+    public function print_tags($tags) {
+        $text = implode(',', $tags);
+        return $text;
     }
 }

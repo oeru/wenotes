@@ -131,49 +131,64 @@ class WEnotesFeed extends WEnotesCouch {
     public function get_default_feed_for_user($user_id) {
         // first get all the metadata for the user if they have any
         //$this->log('finding any feed urls for user '.$user_id);
+        if ($feeds = $this->get_feeds_for_user($user_id)) {
+            // first sort in reverse numerical order by key, i.e. site_id
+            // it's likely that the most recent Course/site will have the
+            // most up-to-date URL...
+            krsort($feeds);
+            $found = array();
+            foreach($feeds as $site_id => $feed) {
+                // we really only want saved feed URLs also accompanied by a
+                // feed type, as these are proven legit. If none exists,
+                // we'll return false.
+                if (isset($feed['url']) && isset($feed['type'])) {
+                    $found[] = array(
+                        'site_id' => $site_id,
+                        'url' => $feed['url'][0],
+                        'type' => $feed['type'][0]
+                    );
+                }
+            }
+            if (count($found) > 0) {
+                // return the only or first one found, which should be the
+                // one most recently created...
+                return $found[0];
+            }
+        }
+        // if nothing above is true, return false
+        return false;
+    }
+
+    // return an array of feeds for a user in the form:
+    // feeds[$site_id] = array( 'url' => [feed url], 'type' => [feed type] );
+    public function get_feeds_for_user($user_id) {
         if ($meta = get_user_meta($user_id)) {
             // filter for our terms of interest: url_???
             //$this->log('filtering out url settings from '.count($meta).' values.');
-            $sites = array();
+            $feeds = array();
             foreach($meta as $key => $val) {
                 //$this->log('key '.$key.', value '.$val);
                 $result = explode('_',$key);
                 if ($result != '_') {
                     // found a url reference
                     if ($result[0] == 'url') {
-                        $sites[$results[1]]['url'] = $val;
+                        $this->log('found url '.$val.' for site '.$result[1]);
+                        $feeds[$result[1]]['url'] = $val;
                     } else if ($result[0] == 'feedtype') {
-                        $sites[$results[1]]['type'] = $val;
+                        $this->log('found type '.$val.' for site '.$result[1]);
+                        $feeds[$result[1]]['type'] = $val;
                     }
                 }
             }
-            // if we found any...
-            if (count($sites) > 0) {
-                // first sort in reverse numerical order by key, i.e. site_id
-                // it's likely that the most recent Course/site will have the
-                // most up-to-date URL...
-                krsort($sites);
-                $found = array();
-                foreach($sites as $site_id => $site) {
-                    // we really only want saved feed URLs also accompanied by a
-                    // feed type, as these are proven legit. If none exists,
-                    // we'll return false.
-                    if (isset($site['url']) && isset($site['type'])) {
-                        $found[] = array(
-                            'site_id' => $site_id,
-                            'url' => $site['url'][0],
-                            'type' => $site['type'][0]
-                        );
-                    }
-                }
-                if (count($found) > 0) {
-                    // return the only or first one found, which should be the
-                    // one most recently created...
-                    return $found[0];
-                }
+            if ($num = count($feeds)) {
+                $this->log('returning '.$num.' feeds defined for sites for user '.$user_id);
+                return $feeds;
+            } else {
+                $this->lot('no feeds defined for user '.$user_id);
             }
+        } else {
+            $this->log('no meta values found for user '.$user_id.'!');
         }
-        // if nothing above is true, return false
         return false;
     }
 
