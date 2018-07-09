@@ -463,7 +463,7 @@ class WENotesSites extends WENotesFeed {
 
     // return an array of tags as a string
     public function print_tags($tags) {
-        $text = implode(',', $tags);
+        $text = implode(', ', $tags);
         return $text;
     }
 }

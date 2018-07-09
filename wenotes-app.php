@@ -172,8 +172,12 @@ class WEnotes extends WEnotesSites {
         // do_action( 'after_signup_site', $domain, $path, $title, $user, $user_email, $key, $meta );
         //add_action('after_signup_user', array($this, 'after_user_signup_to_site'), 10, 7);
 
+        // Blog Feed Finder Hooks
+        add_action( 'bff_update_user_feed', array($this, 'update_feed_hook'), 10, 2);
+
         // other Hooks
         add_action( 'wp_ajax_wenotes', array($this, 'wenotespost_ajax'));
+
     }
 
 
@@ -187,7 +191,7 @@ class WEnotes extends WEnotesSites {
         $this->log('in (new) profile_update hook');
         $this->log('site_id: '. $site_id);
         // user meta data
-        $old_url = get_user_meta($user_id, 'url_'.$site_id);
+        /*$old_url = get_user_meta($user_id, 'url_'.$site_id);
         if (count($old_url) > 1) {
             $this->log('uh oh, we have more than one URL for this user and site: '.
                 print_r($old_url, true));
@@ -200,7 +204,7 @@ class WEnotes extends WEnotesSites {
             if ($new_url != $old_url) {
                 $this->update_registered_feed($user->ID, $site_id, $new_url);
             }
-        }
+        }*/
         // add meta data to user data
         /*foreach($meta as $key => $val) {
             $new_user_data->data->$key = current($val);

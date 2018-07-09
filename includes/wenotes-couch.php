@@ -139,7 +139,7 @@ class WEnotesCouch extends WEnotesUtil {
             if ($result && count($result['rows'])) {
                 $this->log('got result, and non-zero rows...');
                 foreach($result['rows'] as $row) {
-                    $data[$row['value']['from_user_wp_id']] = $row['value'];
+                    $data[$row['value']['wp_user_id']] = $row['value'];
                 }
                 $this->log('CouchDB data array: '. print_r($data, true));
                 return $data;
@@ -154,7 +154,7 @@ class WEnotesCouch extends WEnotesUtil {
 
     // update the feed URL for an existing user_id (from user object)
     // & site_id, unless there isn't one, in which case set it.
-    public function update_registered_feed($user_id, $site_id, $newurl, $type) {
+    /*public function update_registered_feed($user_id, $site_id, $newurl, $type) {
         //$user_id = $user->ID;
         $user = get_userdata($user_id);
         $this->log('updating registered blog url for user '.$user_id.' and site '.$site_id
@@ -213,7 +213,7 @@ class WEnotesCouch extends WEnotesUtil {
             $this->log($e->getCode() . " unable to access");
         }
         return false;
-    }
+    }*/
 
 
     /* new couch<->WP data model */
@@ -222,59 +222,246 @@ class WEnotesCouch extends WEnotesUtil {
         $user = get_userdata($user_id);
         // confirm that the user + feed url doesn't already exist
         if ($results = $this->already_registered($user_id, $url)) {
-            // if there's a valid entry for a user + url combination already continue
-            if (count($results['rows']) > 0) {
-                $num = 0;
+            $num = 0;
+            // if the results includes a 'rows' array...
+            if (is_array($results['rows'])) {
                 foreach($results['rows'] as $interim) {
                     $result = $interim['value'];
                     $num++;
                     $this->log('preexisting CouchDB doc: '.$num.': '. print_r($result, true));
                 }
-            // if there's no URL entry for a user + site combo, create one.
-            } else {
-                $this->log('registering a new url!');
-                $record = array();
-                $record['wp_user_id'] = $user_id;
-                $record['feed_url'] = $url;
-                $record['feed_type'] = $type;
-                $record['wp_site_ids'] = $site_ids; // array of site id numbers
-                $record['tags'] = $this->get_site_tags_for_ids($site_ids); // array of site tags
-                $record['spam'] = false;
-                $record['deleted'] = false;
-                $record['user_nicename'] = $user->user_nicename;
-                $record['display_name'] = $user->dispay_name;
-                $record['gravatar'] = get_avatar_url($user_id,
-                    array('default'=>'identicon', 'processed_args'=>$avatar_args));
-                // mark this with WordPress module type
-                $record['we_source'] = 'wenotes_wp';
-                $record['we_wp_version'] = WENOTES_VERSION;
-                $record['type'] = 'feed';
-                $this->log('**** registering feed for user '.$user_id.' to '.$url.
-                    ' ('.$this->feed_types[$type].') for tags '.print_r($record['tags'], true));
-                if ($this->register($record)) {
-                    return true;
-                } else {
-                    $this->log('failed to register user_id '.$user_id.' and feed '.$url);
-                }
             }
+        // if there's no URL entry for a user + site combo, create one.
         } else {
-            $this->log('check for registered feed for user_id'.$user_id.' and '.$url.' failed.');
+            $this->log('registering a new url!');
+            $record = array();
+            $record['wp_user_id'] = $user_id;
+            $record['feed_url'] = $url;
+            $record['feed_type'] = $type;
+            $record['wp_site_ids'] = $site_ids; // array of site id numbers
+            $record['tags'] = $this->get_site_tags_for_ids($site_ids); // array of site tags
+            $record['spam'] = false;
+            $record['deleted'] = false;
+            $record['user_nicename'] = $user->user_nicename;
+            $record['display_name'] = $user->dispay_name;
+            $record['gravatar'] = get_avatar_url($user_id,
+                array('default'=>'identicon', 'processed_args'=>$avatar_args));
+            // mark this with WordPress module type
+            $record['we_source'] = WENOTES_SOURCE;
+            $record['we_wp_version'] = WENOTES_VERSION;
+            $record['type'] = 'feed';
+            $this->log('**** registering feed for user '.$user_id.' to '.$url.
+                ' ('.$this->feed_types[$type].') for tags '.print_r($record['tags'], true));
+            if ($this->register($record)) {
+                return true;
+            } else {
+                $this->log('failed to register user_id '.$user_id.' and feed '.$url);
+            }
         }
         return false;
     }
+
+    // respond to bff_update_user_feed hook
+    public function update_feed_hook($args) {
+        $this->log('in update_feed_hook function!');
+        $user_id = $args['user_id'];
+        $site_id = $args['site_id'];
+        $url = $args['url'];
+        $type = $args['type'];
+        if ($this->register_site_on_user_feed($user_id, $site_id, $url, $type)) {
+            $this->log('updated feed '.$url.' to include site_id '.$site_id);
+        } else {
+            $this->log('update_feed_hook failed');
+        }
+        return;
+    }
+
+
     // add the site tag to an existing feed registration for a user,
     // creating the feed registration if it doesn't exist.
     public function register_site_on_user_feed($user_id, $site_id, $url, $type) {
+        $this->log('////////////////////////// register site on user feed: user '.$user_id.
+            ', site '.$site_id.', url '.$url.', type '.$type);
+        $create = false;
+        // get any feeds for the user
+        if ($feeds = $this->get_registered_feeds_for_user($user_id)) {
+            $this->log(count($feeds).' feed(s) for user '.$user_id);
+            // we'll need this below
+            $tag = $this->get_site_tag(get_site($site_id));
+            // sift through the existing feed records
+            $success = false;
+            foreach($feeds as $feed_full) {
+                $feed = $feed_full['value'];
+                $this->log('***************************************************** feed: '.print_r($feed, true));
+                // does this feed object already have url we're registering for this user?
+                if ($feed['feed_url'] == $url && $feed['feed_type'] == $type) {
+                    // make sure we don't try to create another rego for this feed.
+                    $create = false;
+                    $this->log('This feed+type already exists for this user! Checking site_ids');
+                    // does this feed registration already include this site_id?
+                    if (is_array($feed['wp_site_ids']) && in_array($site_id, $feed['wp_site_ids'])) {
+                        $this->log('found site '.$site_id.' in feed '.$feed['feed_url'].'!!!');
+                        $this->log('This feed+type is a duplicate for this user! No changes necessary');
+                    // this site_id (and associated tag) needs to be added!
+                    } else {
+                        if (!is_array($feed['wp_site_ids'])) {
+                            $feed['wp_site_ids'] = array();
+                            $feed['wp_site_ids'][] = (isset($feed['wp_site_id']))? $feed['wp_site_id']:$feed['wp_site_ids'] ;
+                        }
+                        $this->log('adding site_id '.$site_id.' and tag '.$tag.' to feed '.$url);
+                        $feed['wp_site_ids'][] = $site_id;
+                        $feed['tags'][] = $tag;
+                        // now save the resulting feed...
+                        if ($this->register($feed)) {
+                            $this->log('updated the registration info for user '.$user_id.' and feed '.
+                                $url.' to include site '.$site_id.' and tag '.$tag.'.');
+                            $success = true;
+                        } else {
+                            $this->log('failed to update registration info for user '.
+                                $user_id.' and feed '.$url.' to include site '.
+                                $site_id.' and tag '.$tag.'.');
+                        }
+                    }
+                // this feed doesn't have the same feed url as we're registering...
+                // but does it already represent the site_id/tag?
+                } else {
+                    $this->log('feed has a different url '.$feed['feed_url'].' - '.
+                        print_r($feed['wp_site_ids'],true));
+                    // does this feed object have our site_id? If so, remove it...
+                    if (is_array($feed['wp_site_ids']) && in_array($site_id, $feed['wp_site_ids'])) {
+                        $this->log('found site (2) '.$site_id.' in feed '.$feed['feed_url'].'!!!');
+                        if ($this->deregister_site_from_user_feed($user_id, $site_id, $feed['feed_url'])) {
+                            $this->log('successfully removed site '.$site_id.' from feed '.$feed['feed_url']);
+                        } else {
+                            $this->log('failed to remove site '.$site_id.' from feed '.$feed['feed_url']);
+                        }
+                    }
+                }
+            }
+            if ($success) {
+                return true;
+            } else {
+                $create = true;
+            }
+        } else {
+            $create = true;
+            // create a new user feed entry for this site.
+        }
 
+        // if the feed being changed doesn't exist, create it (with the site_id & corresponding tag).
+        if ($create) {
+            if ($this->register_new_feed_for_user($user_id, array($site_id), $url, $type)) {
+                $this->log('created new feed for user '.$user_id.', url '.$url.
+                    ', for site '.$site_id);
+                return true;
+            } else {
+                $this->log('failed to create new feed for user '.$user_id.
+                    ', url '.$url.', for site '.$site_id);
+            }
+        }
+        return false;
+        // if another feed exists with that site/tag already, remove it.
     }
+
+    // get the list of registered feeds for the user_id, returning an array
+    // of pages. If none, return false.
+    public function get_registered_feeds_for_user($user_id) {
+        $this->log('Does user '.$user_id . ' have any existing feeds?');
+        $couch = $this->couchdb();
+        $couch->setDatabase(WENOTES_BLOGFEEDS_DB);
+        try {
+            $content = $couch->get('/_design/ids/_view/by_wp_id?key='.
+                $user_id);
+            $this->log('Result of couchdb query is: '. print_r($content, true));
+            $result = json_decode($content->body, true);
+            $this->log('CouchDB number of rows returned: '. count($result['rows']));
+            //$this->log('CouchDB rows returned: '. print_r($result, true));
+            $cnt = count($result['rows']);
+            if ($cnt == 1) {
+                $this->log('Returned one row!');
+                return $result['rows'];
+            } elseif ($cnt > 1) {
+                $this->log('Whooooah! Returned '.$cnt.' rows!');
+                return $result['rows'];
+            } else {
+                $this->log('no documents returned!');
+            }
+        } catch (SagCouchException $e) {
+            $this->log($e->getCode() . " unable to access");
+        }
+        return false;
+    }
+
+
     // remove a site tag from an existing feed registration for a user,
     // removing the feed registration if this is the last site associated with it.
     public function deregister_site_from_user_feed($user_id, $site_id, $url) {
-
+        // get the feed for the users with the site/tag
+        if ($feeds = $this->get_registered_feeds_for_user($user_id)) {
+            $this->log(count($feeds).' feed(s) for user '.$user_id);
+            // we'll need this below
+            $tag = $this->get_site_tag(get_site($site_id));
+            // sift through the existing feed records
+            $success = false;
+            foreach($feeds as $feed_full) {
+                $feed = $feed_full['value'];
+                $this->log('--------------------------------------------------- feed: '.print_r($feed, true));
+                // does this feed object already have url we're registering for this user?
+                if ($feed['feed_url'] == $url) {
+                    $this->log('Found the feed for this user! Checking site_ids');
+                    // does this feed registration already include this site_id?
+                    if (is_array($feed['wp_site_ids']) && in_array($site_id, $feed['wp_site_ids'])) {
+                        $this->log('found site (3) '.$site_id.' in feed '.$feed['feed_url'].'!!!');
+                        // we're here to remove it
+                        foreach($feed['wp_site_ids'] as $key => $id) {
+                            if ($id == $site_id) {
+                                unset($feed['wp_site_ids'][$key]);
+                            }
+                        }
+                        foreach($feed['tags'] as $key => $t) {
+                            if ($t == $tag) {
+                                unset($feed['tags'][$key]);
+                            }
+                        }
+                        // if this was the last site_id for this feed, remove the feed rego, too!
+                        if (count($feed['wp_site_ids']) == 0) {
+                            $this->log('removing this now-redundant feed, with no registered sites...');
+                            if ($this->deregister_user_feed($feed['_id'])) {
+                                $this->log('successfully removed feed '.print_r($feed, true));
+                                return true;
+                            }
+                        } else {
+                            // and then we save the result
+                            if ($this->register($feed)) {
+                                $this->log('updated the registration to remove site '.$site_id.
+                                    ' and tag '.$tag.' from user '.$user_id.' and feed '.
+                                    $url.'.');
+                                return true;
+                            } else {
+                                $this->log('failed to update registration to remove site '.
+                                    $site_id.' and tag '.$tag.' from user '.
+                                    $user_id.' and feed '.$url.'.');
+                            }
+                        }
+                    } else {
+                        $this->log('this feed doesn\'t have site_id '.$site_id.' and tag '.$tag.' specified.');
+                    }
+                } else {
+                    $this->log('this isn\'t the feed we\'re looking for.');
+                }
+            }
+        } else {
+            $this->log('user '.$user_id.' has no registered feeds!');
+        }
+        return false;
     }
-    // remove feed for a user
-    public function deregister_user_feed($user_id, $url) {
 
+    // remove feed for a user based on the couchdb ID and REV
+    public function deregister_user_feed($id) {
+        if ($this->remove($id)) {
+            return true;
+        }
+        return false;
     }
     /* new couch<->WP data model */
 
@@ -288,7 +475,6 @@ class WEnotesCouch extends WEnotesUtil {
         return $tags;
     }
 
-
     // if there's already a doc with this pair of user and site ids,
     // then we've already got a record...
     public function already_registered($user_id, $url) {
@@ -298,17 +484,18 @@ class WEnotesCouch extends WEnotesUtil {
         $couch->setDatabase(WENOTES_BLOGFEEDS_DB);
         try {
             $content = $couch->get('/_design/ids/_view/by_wp_id_and_url?key=['.
-                $user_id.','.$url.']&descending=true');
+                $user_id.',"'.$url.'"]&descending=true');
             $this->log('Result of couchdb query is: '. print_r($content, true));
             $result = json_decode($content->body, true);
             $this->log('CouchDB number of rows returned: '. count($result['rows']));
             //$this->log('CouchDB rows returned: '. print_r($result, true));
             $cnt = count($result['rows']);
             if ($cnt == 1) {
+                $this->log('One row returned!');
                 return $result['rows'][0];
             } elseif ($cnt > 1) {
                 $this->log('Whooooah! Returned '.$cnt.' rows!');
-                return $result['rows'][0];
+                return $result['rows'];
             } else {
                 $this->log('no documents returned!');
             }
@@ -339,8 +526,8 @@ class WEnotesCouch extends WEnotesUtil {
         }
     }
 
-    // submit a feed registration to CouchDB using a feed record object
-    public function register($record) {
+    // submit a feed registration to CouchDB using a feed object
+    public function register($feed) {
         // make the connection
         $couch = $this->couchdb();
         $couch->setDatabase(WENOTES_BLOGFEEDS_DB);
@@ -350,7 +537,7 @@ class WEnotesCouch extends WEnotesUtil {
 	    $feed['we_timestamp'] = date('Y-m-d\TH:i:s.000\Z', $ts);
         $this->log('writing feed description: '. print_r($feed, true));
         try {
-            $result = $couch->post($record);
+            $result = $couch->post($feed);
             $this->log('CouchDB result: '. print_r($result, true));
             return true;
         } catch (SagCouchException $e) {

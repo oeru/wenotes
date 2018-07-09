@@ -108,6 +108,12 @@ class WEnotesFeed extends WEnotesCouch {
                         $this->messages[] = array('message' => 'deleted '.$feedtype_token.
                             ' which was of '.$feedtype.' for user '.$user_id.
                             ' and site '.$site_id);
+                        // gotta also tidy up any couchdb references!
+                        if ($this->deregister_site_from_user_feed($user_id, $site_id, $url)) {
+                            $this->log('also tidied up couchdb reference.');
+                        } else {
+                            $this->log('failed to tidy up couchdb reference.');
+                        }
                     }
                 } else {
                     $this->messages[] = array('message' => $feedtype_token.

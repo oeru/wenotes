@@ -1,6 +1,6 @@
 /* created by Dave Lane, dave@oerfoundation.org, https://oeru.org */
 
-var DEBUG = true; // set to false to disable debugging
+var DEBUG = false; // set to false to disable debugging
 var LOG = DEBUG ? console.log.bind(console) : function () {};
 LOG('WENOTES DEBUG = true'); // only prints if DEBUG = true
 
