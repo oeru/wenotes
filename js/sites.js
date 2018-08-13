@@ -1,8 +1,8 @@
 /* created by Dave Lane, dave@oerfoundation.org, https://oeru.org */
 
-var DEBUG = false; // set to false to disable debugging
-var LOG = DEBUG ? console.log.bind(console) : function () {};
-LOG('WENOTES DEBUG = true'); // only prints if DEBUG = true
+var WE_DEBUG = true; // set to false to disable debugging
+function LOG() { if (WE_DEBUG) { console.log.apply(this, arguments); }}
+LOG('WENOTES DEBUG =', WE_DEBUG); // only prints if DEBUG = true
 
 // get the course tag, given that the course tag could contain a '-'
 // the course tag is the set of terms between the 2nd and last '-'
