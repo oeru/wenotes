@@ -28,7 +28,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-define( 'WENOTES_VERSION', '2.2.0' );
+define( 'WENOTES_VERSION', '2.3.0' );
 // plugin computer name
 define('WENOTES_NAME', 'wenotes');
 // current version
@@ -40,7 +40,7 @@ define('WENOTES_URL', plugins_url("/", __FILE__));
 // absolute server path to this plugin
 define('WENOTES_PATH', plugin_dir_path(__FILE__));
 // couchDB blog feeds database
-define('WENOTES_BLOGFEEDS_DB', 'blog-feeds-hetzner');
+define('WENOTES_BLOGFEEDS_DB', 'blog-feeds-20180919');
 define('WENOTES_MENTIONS_DB', 'mentions');
 define('WENOTES_SOURCE', 'wenotes_wp');
 // module details
