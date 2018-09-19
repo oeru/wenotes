@@ -171,13 +171,13 @@ class WEnotes extends WEnotesSites {
         add_action('remove_user_from_blog', array($this, 'remove_user_from_site'), 10, 2);
         // do_action( 'after_signup_site', $domain, $path, $title, $user, $user_email, $key, $meta );
         //add_action('after_signup_user', array($this, 'after_user_signup_to_site'), 10, 7);
-
         // Blog Feed Finder Hooks
         add_action( 'bff_update_user_feed', array($this, 'update_feed_hook'), 10, 2);
-
         // other Hooks
         add_action( 'wp_ajax_wenotes', array($this, 'wenotespost_ajax'));
-
+        //
+        // our own actions!
+        add_action('wenotes_update_feed', array($this, 'register_site_on_user_feed'), 11, 4);
     }
 
 

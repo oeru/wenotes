@@ -1,14 +1,17 @@
 {
   "_id" : "_design/ids",
   "views" : {
-    "by_site_and_wp_id" : {
-      "map" : "function (doc) {  if (doc.we_source == 'wenotes_wp') {    emit([doc.wp_user_id, doc.wp_site_ids], doc);  }}"
-    },
     "by_date" : {
       "map" : "function (doc) {  if (doc.we_source == 'wenotes_wp') {    emit(doc.we_timestamp, doc);  }}"
     },
+    "by_site_and_wp_id" : {
+      "map" : "function (doc) {  if (doc.we_source == 'wenotes_wp') {   for (var idx in doc.wp_site_ids) { emit([doc.wp_user_id, doc.wp_site_ids[idx]], doc);  }}}"
+    },
+    "by_site_id" : {
+      "map" : "function (doc) {  if (doc.we_source == 'wenotes_wp') {   for (var idx in doc.wp_site_ids) { emit([doc.wp_site_ids[idx]], doc);  }}}"
+    },
     "by_site_and_wp_id_short" : {
-      "map" : "function (doc) {  if (doc.we_source == 'wenotes_wp') {    emit([doc.wp_user_id, doc.wp_site_ids], [doc.user_nicename, doc.feed_url]);  }}"
+      "map" : "function (doc) {  if (doc.we_source == 'wenotes_wp') {    for (var idx in doc.wp_site_ids) { emit([doc.wp_user_id, doc.wp_site_ids[idx]], [doc.user_nicename, doc.feed_url]);  }}}"
     },
     "by_wp_id_short" : {
       "map" : "function (doc) {  if (doc.we_source == 'wenotes_wp') {    emit(doc.wp_user_id, [doc.wp_site_ids, doc.tags, doc.display_name, doc.user_nicename, doc.feed_url, doc.we_timestamp]);  }}"

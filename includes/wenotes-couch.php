@@ -132,10 +132,10 @@ class WEnotesCouch extends WEnotesUtil {
         $couch->setDatabase(WENOTES_BLOGFEEDS_DB);
         try {
             $data = array();
-            $result = json_decode($couch->get('/_design/ids/_view/by_site_id?key='.
-                $site_id)->body, true);
+            $result = json_decode($couch->get('/_design/ids/_view/by_site_id?key=["'.
+                $site_id.'"]')->body, true);
             //$this->log('CouchDB number of rows returned: '. count($result['rows']));
-            $this->log('get_reg_status_by_site CouchDB result: '. print_r($result, true));
+            $this->log('******* get_reg_status_by_site CouchDB result: '. print_r($result, true));
             if ($result && count($result['rows'])) {
                 $this->log('got result, and non-zero rows...');
                 foreach($result['rows'] as $row) {
@@ -156,8 +156,10 @@ class WEnotesCouch extends WEnotesUtil {
     // register a feed for a user for a series of sites
     public function register_new_feed_for_user($user_id, $site_ids, $url, $type) {
         $user = get_userdata($user_id);
+        $this->log('register_new_feed_for_user ===========================================');
         // confirm that the user + feed url doesn't already exist
         if ($results = $this->already_registered($user_id, $url)) {
+            $this->log('the url is already registered... '.print_r($results, true));
             $num = 0;
             // if the results includes a 'rows' array...
             if (is_array($results['rows'])) {
@@ -166,10 +168,23 @@ class WEnotesCouch extends WEnotesUtil {
                     $num++;
                     $this->log('preexisting CouchDB doc: '.$num.': '. print_r($result, true));
                 }
-            }
+            } /*else {
+                $existing_site_ids = $results['value']['0'];
+                $this->log('found an existing record id: '.$results['id'].' for sites: '.print_r($existing_site_ids, true));
+                foreach($site_ids as $site_id) {
+                    if (!in_array($site_id, $existing_site_ids)) {
+                        // add the new site to the record:
+                        if ($this->register_site_on_user_feed($user_id, $site_id, $url, $type)) {
+                            $this->log('added '.$site_id.' to user ('.$user_id.') and url '.$url);
+                        } else {
+                            $this->log('failed to add '.$site_id.' to user ('.$user_id.') and url '.$url);
+                        }
+                    }
+                }
+            }*/
         // if there's no URL entry for a user + site combo, create one.
         } else {
-            $this->log('registering a new url!');
+            $this->log('registering a new url: url '.$url.' type '.$type);
             $record = array();
             $record['wp_user_id'] = $user_id;
             $record['feed_url'] = $url;
@@ -178,8 +193,11 @@ class WEnotesCouch extends WEnotesUtil {
             $record['tags'] = $this->get_site_tags_for_ids($site_ids); // array of site tags
             $record['spam'] = false;
             $record['deleted'] = false;
-            $record['user_nicename'] = $user->user_nicename;
-            $record['display_name'] = $user->dispay_name;
+            $record['username'] = $user->data->user_login;
+            $record['nicename'] = $user->data->user_nicename;
+            $record['display_name'] = $user->data->display_name;
+            $record['first_name'] = $user->first_name;
+            $record['last_name'] = $user->last_name;
             $record['gravatar'] = get_avatar_url($user_id,
                 array('default'=>'identicon', 'processed_args'=>$avatar_args));
             // mark this with WordPress module type
@@ -189,6 +207,7 @@ class WEnotesCouch extends WEnotesUtil {
             $this->log('**** registering feed for user '.$user_id.' to '.$url.
                 ' ('.$this->feed_types[$type].') for tags '.print_r($record['tags'], true));
             if ($this->register($record)) {
+                $this->log('successfully registered');
                 return true;
             } else {
                 $this->log('failed to register user_id '.$user_id.' and feed '.$url);
@@ -205,13 +224,12 @@ class WEnotesCouch extends WEnotesUtil {
         $url = $args['url'];
         $type = $args['type'];
         if ($this->register_site_on_user_feed($user_id, $site_id, $url, $type)) {
-            $this->log('updated feed '.$url.' to include site_id '.$site_id);
+            $this->log('updated feed '.$url.' to include site_id '.$site_id.': '.$url.' ('.$type.')');
         } else {
             $this->log('update_feed_hook failed');
         }
         return;
     }
-
 
     // add the site tag to an existing feed registration for a user,
     // creating the feed registration if it doesn't exist.
@@ -229,8 +247,9 @@ class WEnotesCouch extends WEnotesUtil {
             foreach($feeds as $feed_full) {
                 $feed = $feed_full['value'];
                 $this->log('***************************************************** feed: '.print_r($feed, true));
+                $this->log('comparing urls: ('.$feed['feed_url'].') == ('.$url.')?');
                 // does this feed object already have url we're registering for this user?
-                if ($feed['feed_url'] == $url && $feed['feed_type'] == $type) {
+                if ($feed['feed_url'] == $url) {
                     // make sure we don't try to create another rego for this feed.
                     $create = false;
                     $this->log('This feed+type already exists for this user! Checking site_ids');
@@ -288,11 +307,11 @@ class WEnotesCouch extends WEnotesUtil {
         if ($create) {
             if ($this->register_new_feed_for_user($user_id, array($site_id), $url, $type)) {
                 $this->log('created new feed for user '.$user_id.', url '.$url.
-                    ', for site '.$site_id);
+                    ', type '.$type.', for site '.$site_id);
                 return true;
             } else {
                 $this->log('failed to create new feed for user '.$user_id.
-                    ', url '.$url.', for site '.$site_id);
+                    ', url '.$url.', type '.$type.', for site '.$site_id);
             }
         }
         return false;

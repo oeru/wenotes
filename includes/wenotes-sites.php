@@ -48,6 +48,7 @@ class WENotesSites extends WENotesFeed {
             'url' => $_POST['url']);
         if ($type = $this->update_feed_for_user_for_site($details['user_id'],$details['site_id'],
             $details['url'])) {
+            $this->log('updated the feed ('.$details['url'].') for user '.$details['user_id'].' for site '.$details['site_id']);
             // if we added a new URL, change the resulting form
             if ($details['is_add']) {
                 $details['new_form'] = $this->alter_url_form($details['user_id'],$details['site_id'],
@@ -119,7 +120,7 @@ class WENotesSites extends WENotesFeed {
                     </tr>
                     <?php
                     $reg_status = $this->get_reg_status_by_site($site_id);
-                    $this->log('reg_status = '. print_r($reg_status, true));
+                    $this->log('#########################reg_status = '. print_r($reg_status, true));
                     foreach ($users as $index => $data){
                         $user_id = $data->ID;
                         $wp_url = '/wp-admin/network/user-edit.php?user_id='.$user_id;
@@ -131,8 +132,8 @@ class WENotesSites extends WENotesFeed {
                         $blog_type = $this->get_feed_type_for_user_for_site($user_id, $site_id, $blog_url);
                         // construct the blog reg status_html
                         if ($reg_status && $reg_status[$user_id]) {
-                            $status_html = '<span title="Registered on '.
-                                $reg_status[$user_id]['we_timestamp'].'">Registered</span>';
+                            $status_html = '<a href=\'https://'.WENOTES_HOST.'/'.WENOTES_BLOGFEEDS_DB.'/_design/ids/_view/by_site_and_wp_id?key=['.$user_id.', "'.$site_id.'"]\' title="Registered on '.
+                                $reg_status[$user_id]['we_timestamp'].'">Registered</a>';
                         }
                         $rowclass = 'user-row';
                         $rowclass .= ($alt%2==0)? ' odd':' even';
@@ -367,6 +368,7 @@ class WENotesSites extends WENotesFeed {
         // build the array, don't find types of feeds
         if ($feedusers = $this->build_user_feed_site_array()) {
             //$this->log('survey: '.print_r($survey, true));
+            $this->log('updating feed registrations for this entire site!');
             $new = 0; $existing = 0;
             //ksort($feedusers);
             echo '<div class="wenotes-rego">';

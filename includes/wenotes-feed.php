@@ -47,7 +47,22 @@ class WEnotesFeed extends WEnotesCouch {
     // the value or find a feed type...
     // returns a type, or false on failure.
     public function update_feed_for_user_for_site($user_id, $site_id, $url, $type = '') {
+        $this->log('looking at updating user ('.$user_id.') & site ('.$site_id.') with url '.$url.' of type '.$type);
+        if ($type == '') {
+            $this->log('no type provided');
+            $type = $this->get_feed_type($url);
+            $this->log('found type of ('.$type.') for url '.$url);
+        }
         $new_url = sanitize_text_field($url);
+        //
+        // a hook to ensure that when a feed is updated, other plugins can do
+        // useful things, like make sure it's in our couchdb...
+        //
+        // Arguments:
+        // user_id and site_id are integers
+        // url is a url string starting with a scheme (http(s)://) and domain name
+        // type is a
+        do_action('wenotes_update_feed', $user_id, $site_id, $new_url, $type);
         // get the old URL and make sure it's not the same as the new URL...
         if ($old_url = $this->get_feed_for_user_for_site($user_id, $site_id)) {
             if ($old_url == $new_url) {
