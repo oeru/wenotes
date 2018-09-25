@@ -132,7 +132,7 @@ class WENotesSites extends WENotesFeed {
                         $blog_type = $this->get_feed_type_for_user_for_site($user_id, $site_id, $blog_url);
                         // construct the blog reg status_html
                         if ($reg_status && $reg_status[$user_id]) {
-                            $status_html = '<a href=\'https://'.WENOTES_HOST.'/'.WENOTES_BLOGFEEDS_DB.'/_design/ids/_view/by_site_and_wp_id?key=['.$user_id.', "'.$site_id.'"]\' title="Registered on '.
+                            $status_html = '<a href=\'https://'.WENOTES_HOST.'/'.WENOTES_BLOGFEEDS_DB.'/_design/ids/_view/by_site_and_wp_id?key=["'.$user_id.'", "'.$site_id.'"]\' title="Registered on '.
                                 $reg_status[$user_id]['we_timestamp'].'">Registered</a>';
                         }
                         $rowclass = 'user-row';

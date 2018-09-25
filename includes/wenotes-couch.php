@@ -105,8 +105,8 @@ class WEnotesCouch extends WEnotesUtil {
         $couch->setDatabase(WENOTES_BLOGFEEDS_DB);
         try {
             $data = array();
-            $result = json_decode($couch->get('/_design/ids/_view/by_wp_id?key='.
-                $user_id.'&descending=true')->body, true);
+            $result = json_decode($couch->get('/_design/ids/_view/by_wp_id?key="'.
+                $user_id.'"&descending=true')->body, true);
             $this->log('CouchDB number of rows returned: '. count($result['rows']));
             //$this->log('CouchDB rows returned: '. print_r($result, true));
             if ($result && count($result['rows'])) {
@@ -325,8 +325,8 @@ class WEnotesCouch extends WEnotesUtil {
         $couch = $this->couchdb();
         $couch->setDatabase(WENOTES_BLOGFEEDS_DB);
         try {
-            $content = $couch->get('/_design/ids/_view/by_wp_id?key='.
-                $user_id);
+            $content = $couch->get('/_design/ids/_view/by_wp_id?key="'.
+                $user_id.'"');
             $this->log('Result of couchdb query is: '. print_r($content, true));
             $result = json_decode($content->body, true);
             $this->log('CouchDB number of rows returned: '. count($result['rows']));
@@ -438,8 +438,8 @@ class WEnotesCouch extends WEnotesUtil {
         $couch = $this->couchdb();
         $couch->setDatabase(WENOTES_BLOGFEEDS_DB);
         try {
-            $content = $couch->get('/_design/ids/_view/by_wp_id_and_url?key=['.
-                $user_id.',"'.$url.'"]&descending=true');
+            $content = $couch->get('/_design/ids/_view/by_wp_id_and_url?key=["'.
+                $user_id.'","'.$url.'"]&descending=true');
             $this->log('Result of couchdb query is: '. print_r($content, true));
             $result = json_decode($content->body, true);
             $this->log('CouchDB number of rows returned: '. count($result['rows']));
