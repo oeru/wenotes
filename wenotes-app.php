@@ -212,6 +212,11 @@ class WEnotes extends WEnotesSites {
         $this->log('new user data:'.print_r($new_user_data, true));*/
     }
 
+    public function add_user($user_id) {
+        $this->log('in add_user hook');
+        $this->log('--user_id '.$user_id);
+    }
+
     /**
      * Adds a user to a blog.
      *

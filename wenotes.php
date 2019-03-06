@@ -52,7 +52,7 @@ define('WENOTES_ADMIN_SLUG', 'wenotes_settings');
 define('WENOTES_ADMIN_TITLE', 'WikiEducator Notes Settings');
 define('WENOTES_ADMIN_MENU', 'WEnotes Settings');
 // turn on debugging with true, off with false
-define('WENOTES_DEBUG', true);
+define('WENOTES_DEBUG', false);
 define('LOG_STREAM', getenv('LOG_STREAM'));
 // other useful parameters
 // limit the amount of data we'll read in to check for feed data
