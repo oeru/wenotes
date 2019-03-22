@@ -205,7 +205,7 @@ class WEnotesFeed extends WEnotesCouch {
                 $this->log('returning '.$num.' feeds defined for sites for user '.$user_id);
                 return $feeds;
             } else {
-                $this->lot('no feeds defined for user '.$user_id);
+                $this->log('no feeds defined for user '.$user_id);
             }
         } else {
             $this->log('no meta values found for user '.$user_id.'!');
